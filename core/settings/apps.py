@@ -1,5 +1,7 @@
 MY_APPS = [
     "apps.users",
+    "apps.accommodations",
+    "apps.tours",
 ]
 
 SIDE_LOADED_APPS = [
@@ -9,6 +11,7 @@ SIDE_LOADED_APPS = [
     "corsheaders",
     "drf_spectacular",
     "minio_storage",
+    "computedfields"
 ]
 
 DJANGO_CONTRIB_APPS = [

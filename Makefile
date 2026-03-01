@@ -19,3 +19,10 @@ test:
 
 collectstatic:
 	$(DOCKER_COMPOSE) exec web uv run manage.py collectstatic
+
+migrate:
+	$(DOCKER_COMPOSE) exec web uv run manage.py migrate
+
+manage:
+	$(DOCKER_COMPOSE) exec web uv run manage.py $(ARGS)
+

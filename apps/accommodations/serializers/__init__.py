@@ -1,0 +1,4 @@
+from .accommodation import AccommodationSerializer
+from .amenity import AccommodationAmenitySerializer
+from .image import AccommodationImageSerializer
+from .rating import AccommodationRatingSerializer

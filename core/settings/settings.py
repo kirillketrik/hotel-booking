@@ -35,7 +35,7 @@ class DatabaseSettings(BaseSettings):
     NAME: str = Field("logistic", validation_alias="POSTGRES_DB")
     USER: SecretStr = Field(SecretStr("admin"), validation_alias="POSTGRES_USER")
     PASSWORD: SecretStr = Field(SecretStr("admin"), validation_alias="POSTGRES_PASSWORD")
-    HOST: str = Field("db", validation_alias="POSTGRES_HOST")
+    HOST: str = Field("localhost", validation_alias="POSTGRES_HOST")
     PORT: int = Field(5432, validation_alias="POSTGRES_PORT")
 
     @property
@@ -65,7 +65,7 @@ class MinioSettings(BaseSettings):
 
 
 class AuthSettings(BaseSettings):
-    JWT_SECRET_KEY: SecretStr = Field(..., validation_alias="JWT_SECRET_KEY")
+    JWT_SECRET_KEY: SecretStr = Field(SecretStr("yeyeyey"), validation_alias="JWT_SECRET_KEY")
     ACCESS_TOKEN_LIFETIME: int = Field(60, validation_alias="ACCESS_TOKEN_LIFETIME")
     REFRESH_TOKEN_LIFETIME: int = Field(1440, validation_alias="REFRESH_TOKEN_LIFETIME")
     ROTATE_REFRESH_TOKENS: bool = Field(True)
@@ -102,6 +102,11 @@ class AuthSettings(BaseSettings):
         }
 
 
+class AiSettings(BaseSettings):
+    AI_MODEL: str = Field("gemini")
+    API_KEY: SecretStr = Field("AIzaSyB9mtgXppTgxBkjIrj52fRTdeeNp7ZhFwo", validation_alias="AI_API_KEY")
+
+
 class Settings(BaseSettings):
     DEBUG: bool = True
 
@@ -111,6 +116,7 @@ class Settings(BaseSettings):
     AUTH: AuthSettings = AuthSettings()
     REDIS: RedisSettings = RedisSettings()
     SECURITY: SecuritySettings = SecuritySettings()
+    AI: AiSettings = AiSettings()
 
     model_config = SettingsConfigDict(
         env_file_encoding="utf-8",

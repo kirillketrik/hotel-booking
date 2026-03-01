@@ -10,7 +10,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.models import User
-from apps.users.permissions import IsUserHimself
+from apps.users.permissions import DoesAssosiatedWithUser
 from apps.users.serializers import RegisterUserSerializer, UserSerializer
 from apps.users.service import UserService
 from apps.users.utils import set_auth_cookies, delete_auth_cookies
@@ -23,7 +23,7 @@ class UsersViewSet(
     def get_permissions(self):
         if self.action in ["register", "login", "csrf"]:
             return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated(), IsUserHimself()]
+        return [permissions.IsAuthenticated(), DoesAssosiatedWithUser()]
 
     def get_serializer_class(self):
         if self.action == "register":

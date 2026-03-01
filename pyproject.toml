@@ -2,18 +2,23 @@
 name = "backend"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "celery-types>=0.24.0",
     "celery[redis]>=5.6.2",
+    "channels>=4.3.2",
+    "channels-redis>=4.3.0",
     "django>=6.0.1",
+    "django-computedfields>=0.1.7",
     "django-cors-headers>=4.9.0",
     "django-minio-storage>=0.5.9",
     "djangorestframework>=3.16.1",
     "djangorestframework-simplejwt>=5.5.1",
     "drf-spectacular>=0.29.0",
     "faker>=40.1.2",
+    "google-genai>=1.64.0",
     "model-bakery>=1.23.2",
+    "pillow>=12.1.0",
     "psycopg>=3.3.2",
     "psycopg-binary>=3.3.2",
     "pydantic-settings>=2.12.0",
