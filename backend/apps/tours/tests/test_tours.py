@@ -2,7 +2,7 @@ import pytest
 from django.urls import reverse
 
 from apps.tours.enums import TourStatus
-from apps.tours.models import AgencyEmployee, Notification, Tour
+from apps.tours.models import AgencyEmployee, Notification
 
 pytestmark = pytest.mark.django_db
 
@@ -20,9 +20,7 @@ VALID_TOUR_PAYLOAD = {
 
 class TestTourCreate:
     def _list_url(self, agency_pk):
-        return reverse(
-            "agency-tours-list", kwargs={"agency_pk": agency_pk}
-        )
+        return reverse("agency-tours-list", kwargs={"agency_pk": agency_pk})
 
     def test_agency_admin_creates_tour_with_pending_status(
         self, auth_client, approved_agency
@@ -48,17 +46,13 @@ class TestTourCreate:
         self, operator_client, approved_agency, agency_operator
     ):
         url = self._list_url(approved_agency.pk)
-        response = operator_client.post(
-            url, VALID_TOUR_PAYLOAD, format="json"
-        )
+        response = operator_client.post(url, VALID_TOUR_PAYLOAD, format="json")
 
         assert response.status_code == 201
 
     def test_non_member_returns_403(self, other_client, approved_agency):
         url = self._list_url(approved_agency.pk)
-        response = other_client.post(
-            url, VALID_TOUR_PAYLOAD, format="json"
-        )
+        response = other_client.post(url, VALID_TOUR_PAYLOAD, format="json")
 
         assert response.status_code == 403
 
@@ -119,14 +113,15 @@ class TestTourList:
     def test_list_filtered_by_agency_pk(
         self, api_client, approved_tour, approved_agency, other_user
     ):
+        from datetime import date
+        from decimal import Decimal
+
         from apps.tours.services import (
             agency_approve,
             agency_create,
-            tour_create,
             tour_approve,
+            tour_create,
         )
-        from decimal import Decimal
-        from datetime import date
 
         # Create a second agency + tour that should NOT appear in results
         other_agency = agency_create(
@@ -243,9 +238,7 @@ class TestTourModeration:
             notification_type="tour_approved",
         ).exists()
 
-    def test_reject_sets_reason(
-        self, admin_client, tour, approved_agency
-    ):
+    def test_reject_sets_reason(self, admin_client, tour, approved_agency):
         url = reverse(
             "agency-tours-reject",
             kwargs={"agency_pk": approved_agency.pk, "pk": tour.pk},

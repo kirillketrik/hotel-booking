@@ -35,7 +35,15 @@ class HotelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Hotel
-        fields = ("id", "name", "description", "stars", "amenities", "images", "rooms")
+        fields = (
+            "id",
+            "name",
+            "description",
+            "stars",
+            "amenities",
+            "images",
+            "rooms",
+        )
 
 
 class HotelRoomInputSerializer(serializers.Serializer):

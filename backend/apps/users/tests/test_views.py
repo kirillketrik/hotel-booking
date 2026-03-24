@@ -4,7 +4,6 @@ from django.urls import reverse
 
 from apps.users.models import User
 
-
 pytestmark = pytest.mark.django_db
 
 VALID_REGISTER_DATA = {
@@ -18,31 +17,36 @@ VALID_REGISTER_DATA = {
 
 class TestRegisterView:
     def test_success(self, api_client):
-        response = api_client.post(reverse("users-register"), VALID_REGISTER_DATA)
+        response = api_client.post(
+            reverse("users-register"), VALID_REGISTER_DATA
+        )
 
         assert response.status_code == 200
         assert settings.SETTINGS.AUTH.AUTH_COOKIE in response.cookies
         assert settings.SETTINGS.AUTH.REFRESH_COOKIE in response.cookies
         assert User.objects.filter(email=VALID_REGISTER_DATA["email"]).exists()
 
-    @pytest.mark.parametrize("invalid_data, expected_status", [
-        (
-            {**VALID_REGISTER_DATA, "password2": "DifferentPass456!"},
-            400,
-        ),
-        (
-            {**VALID_REGISTER_DATA, "password": "123", "password2": "123"},
-            400,
-        ),
-        (
-            {**VALID_REGISTER_DATA, "email": "not-an-email"},
-            400,
-        ),
-        (
-            {},
-            400,
-        ),
-    ])
+    @pytest.mark.parametrize(
+        "invalid_data, expected_status",
+        [
+            (
+                {**VALID_REGISTER_DATA, "password2": "DifferentPass456!"},
+                400,
+            ),
+            (
+                {**VALID_REGISTER_DATA, "password": "123", "password2": "123"},
+                400,
+            ),
+            (
+                {**VALID_REGISTER_DATA, "email": "not-an-email"},
+                400,
+            ),
+            (
+                {},
+                400,
+            ),
+        ],
+    )
     def test_invalid_register(self, api_client, invalid_data, expected_status):
         response = api_client.post(reverse("users-register"), invalid_data)
 
@@ -64,10 +68,13 @@ class TestLoginView:
         assert settings.SETTINGS.AUTH.AUTH_COOKIE in response.cookies
         assert settings.SETTINGS.AUTH.REFRESH_COOKIE in response.cookies
 
-    @pytest.mark.parametrize("email, password", [
-        ("testuser@example.com", "wrongpassword"),
-        ("noone@example.com", "whatever123!"),
-    ])
+    @pytest.mark.parametrize(
+        "email, password",
+        [
+            ("testuser@example.com", "wrongpassword"),
+            ("noone@example.com", "whatever123!"),
+        ],
+    )
     def test_invalid_credentials(self, api_client, user, email, password):
         response = api_client.post(
             reverse("users-login"), {"email": email, "password": password}
@@ -111,8 +118,12 @@ class TestLogoutView:
         response = auth_client.post(reverse("users-logout"))
 
         assert response.status_code == 200
-        access_cookie = response.cookies.get(settings.SETTINGS.AUTH.AUTH_COOKIE)
-        refresh_cookie = response.cookies.get(settings.SETTINGS.AUTH.REFRESH_COOKIE)
+        access_cookie = response.cookies.get(
+            settings.SETTINGS.AUTH.AUTH_COOKIE
+        )
+        refresh_cookie = response.cookies.get(
+            settings.SETTINGS.AUTH.REFRESH_COOKIE
+        )
         # delete_cookie sets value="" and max-age=0
         assert access_cookie is not None
         assert access_cookie.value == ""
@@ -127,7 +138,9 @@ class TestLogoutView:
 
 class TestRefreshView:
     def test_success(self, auth_client, refresh_token):
-        auth_client.cookies[settings.SETTINGS.AUTH.REFRESH_COOKIE] = str(refresh_token)
+        auth_client.cookies[settings.SETTINGS.AUTH.REFRESH_COOKIE] = str(
+            refresh_token
+        )
         response = auth_client.post(reverse("users-refresh"))
 
         assert response.status_code == 200
@@ -139,7 +152,9 @@ class TestRefreshView:
         assert response.status_code == 401
 
     def test_invalid_refresh_token(self, auth_client):
-        auth_client.cookies[settings.SETTINGS.AUTH.REFRESH_COOKIE] = "invalid.token.value"
+        auth_client.cookies[settings.SETTINGS.AUTH.REFRESH_COOKIE] = (
+            "invalid.token.value"
+        )
         response = auth_client.post(reverse("users-refresh"))
 
         assert response.status_code == 401
@@ -147,7 +162,9 @@ class TestRefreshView:
     def test_inactive_user(self, auth_client, user, refresh_token):
         user.is_active = False
         user.save()
-        auth_client.cookies[settings.SETTINGS.AUTH.REFRESH_COOKIE] = str(refresh_token)
+        auth_client.cookies[settings.SETTINGS.AUTH.REFRESH_COOKIE] = str(
+            refresh_token
+        )
         response = auth_client.post(reverse("users-refresh"))
 
         assert response.status_code == 401
@@ -188,9 +205,7 @@ class TestUpdateView:
 
     def test_unauthenticated(self, api_client, user):
         url = reverse("users-detail", kwargs={"pk": user.pk})
-        response = api_client.put(
-            url, {"first_name": "X", "last_name": "Y"}
-        )
+        response = api_client.put(url, {"first_name": "X", "last_name": "Y"})
 
         assert response.status_code == 403
 
@@ -207,10 +222,9 @@ class TestUpdateView:
 
     def test_update_other_user(self, auth_client, user):
         from model_bakery import baker
+
         other = baker.make(User)
         url = reverse("users-detail", kwargs={"pk": other.pk})
-        response = auth_client.put(
-            url, {"first_name": "X", "last_name": "Y"}
-        )
+        response = auth_client.put(url, {"first_name": "X", "last_name": "Y"})
 
         assert response.status_code == 404

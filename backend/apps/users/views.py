@@ -11,11 +11,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.users.models import User
 from apps.users.selectors import user_get_queryset
 from apps.users.serializers import (
-    RegisterUserSerializer,
     LoginUserSerializer,
+    RegisterUserSerializer,
     UserSerializer,
 )
-from apps.users.services import user_register, user_login
+from apps.users.services import user_login, user_register
 from apps.users.utils import delete_auth_cookies, set_auth_cookies
 
 
@@ -50,10 +50,7 @@ class UsersViewSet(
     def login(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = user_login(
-            request=request,
-            **serializer.validated_data
-        )
+        user = user_login(request=request, **serializer.validated_data)
         return self.perform_auth(user=user)
 
     @action(methods=["get"], detail=False)

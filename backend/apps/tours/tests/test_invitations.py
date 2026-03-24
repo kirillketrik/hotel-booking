@@ -1,10 +1,11 @@
+from datetime import timedelta
+
 import pytest
 from django.urls import reverse
 from django.utils import timezone
-from datetime import timedelta
 
 from apps.tours.enums import InvitationStatus
-from apps.tours.models import AgencyEmployee, Invitation
+from apps.tours.models import AgencyEmployee
 from apps.tours.services import invitation_create
 
 pytestmark = pytest.mark.django_db
@@ -16,9 +17,7 @@ class TestInvitationCreate:
             "agency-invitations-list", kwargs={"agency_pk": agency_pk}
         )
 
-    def test_link_only_invitation_success(
-        self, auth_client, approved_agency
-    ):
+    def test_link_only_invitation_success(self, auth_client, approved_agency):
         url = self._list_url(approved_agency.pk)
         response = auth_client.post(url, {})
 
@@ -27,9 +26,7 @@ class TestInvitationCreate:
         assert response.data["invited_user"] is None
         assert response.data["status"] == InvitationStatus.PENDING
 
-    def test_invitation_by_email_success(
-        self, auth_client, approved_agency
-    ):
+    def test_invitation_by_email_success(self, auth_client, approved_agency):
         url = self._list_url(approved_agency.pk)
         response = auth_client.post(
             url, {"invited_email": "guest@example.com"}
@@ -42,9 +39,7 @@ class TestInvitationCreate:
         self, auth_client, approved_agency, other_user
     ):
         url = self._list_url(approved_agency.pk)
-        response = auth_client.post(
-            url, {"invited_user": str(other_user.pk)}
-        )
+        response = auth_client.post(url, {"invited_user": str(other_user.pk)})
 
         assert response.status_code == 201
         assert response.data["invited_user"] == other_user.pk
@@ -63,9 +58,7 @@ class TestInvitationCreate:
 
         assert response.status_code == 403
 
-    def test_non_member_returns_403(
-        self, other_client, approved_agency
-    ):
+    def test_non_member_returns_403(self, other_client, approved_agency):
         url = self._list_url(approved_agency.pk)
         response = other_client.post(url, {})
 
@@ -111,9 +104,7 @@ class TestInvitationList:
 
 class TestInvitationAccept:
     def _accept_url(self, token):
-        return reverse(
-            "invitations-respond-accept", kwargs={"token": token}
-        )
+        return reverse("invitations-respond-accept", kwargs={"token": token})
 
     def test_success_creates_employee_and_sets_accepted(
         self, other_client, other_user, pending_invitation
@@ -156,9 +147,7 @@ class TestInvitationAccept:
     ):
         from apps.tours.models import AgencyEmployee as AE
 
-        admin = AE.objects.get(
-            user=agency_admin.user, agency=approved_agency
-        )
+        admin = AE.objects.get(user=agency_admin.user, agency=approved_agency)
         expired_inv = invitation_create(
             agency=approved_agency,
             created_by=admin,
@@ -172,9 +161,7 @@ class TestInvitationAccept:
 
 class TestInvitationReject:
     def _reject_url(self, token):
-        return reverse(
-            "invitations-respond-reject", kwargs={"token": token}
-        )
+        return reverse("invitations-respond-reject", kwargs={"token": token})
 
     def test_success_sets_status_rejected(
         self, other_client, pending_invitation

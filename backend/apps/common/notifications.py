@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 
-from django.conf import settings
-
 
 class BaseNotificationBackend(ABC):
     @abstractmethod
@@ -86,7 +84,6 @@ def notify_admins(
     backends: list[BaseNotificationBackend] | None = None,
 ) -> None:
     """Send a notification to all Django staff/superusers."""
-    User = settings.AUTH_USER_MODEL
     from django.contrib.auth import get_user_model
 
     UserModel = get_user_model()

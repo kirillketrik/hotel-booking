@@ -22,7 +22,6 @@ from apps.tours.models import (
     TourTransfer,
 )
 
-
 # ---------------------------------------------------------------------------
 # Agency
 # ---------------------------------------------------------------------------
@@ -96,8 +95,7 @@ def agency_reject(*, agency: Agency, reason: str) -> Agency:
         agency=agency,
         title="Your agency has been rejected",
         message=(
-            f'Your agency "{agency.name}" was rejected. '
-            f"Reason: {reason}"
+            f'Your agency "{agency.name}" was rejected. Reason: {reason}'
         ),
         notification_type=NotificationType.AGENCY_REJECTED,
     )
@@ -173,9 +171,7 @@ def _validate_invitation(*, invitation: Invitation, user) -> None:
         raise ValidationError("This invitation has expired.")
 
     if invitation.invited_user and invitation.invited_user != user:
-        raise ValidationError(
-            "This invitation was sent to a different user."
-        )
+        raise ValidationError("This invitation was sent to a different user.")
 
 
 # ---------------------------------------------------------------------------
@@ -327,10 +323,7 @@ def tour_reject(*, tour: Tour, reason: str) -> Tour:
     _notify_agency_admins(
         agency=tour.agency,
         title="Your tour has been rejected",
-        message=(
-            f'Your tour "{tour.title}" was rejected. '
-            f"Reason: {reason}"
-        ),
+        message=(f'Your tour "{tour.title}" was rejected. Reason: {reason}'),
         notification_type=NotificationType.TOUR_REJECTED,
     )
 

@@ -5,8 +5,12 @@ from apps.tours.models import Tour
 
 class TourFilter(django_filters.FilterSet):
     # Price range
-    price_min = django_filters.NumberFilter(field_name="price", lookup_expr="gte")
-    price_max = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
+    price_min = django_filters.NumberFilter(
+        field_name="price", lookup_expr="gte"
+    )
+    price_max = django_filters.NumberFilter(
+        field_name="price", lookup_expr="lte"
+    )
 
     # Date range
     start_date_from = django_filters.DateFilter(
@@ -41,7 +45,9 @@ class TourFilter(django_filters.FilterSet):
     )
 
     # Status
-    status = django_filters.CharFilter(field_name="status", lookup_expr="exact")
+    status = django_filters.CharFilter(
+        field_name="status", lookup_expr="exact"
+    )
 
     class Meta:
         model = Tour

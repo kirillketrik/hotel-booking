@@ -45,7 +45,9 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         if action == "mark_read":
             notification_id = content.get("id")
             if notification_id:
-                await self._mark_read(user=user, notification_id=notification_id)
+                await self._mark_read(
+                    user=user, notification_id=notification_id
+                )
         elif action == "mark_all_read":
             await self._mark_all_read(user)
 
@@ -55,13 +57,15 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
 
     async def notification_message(self, event):
         """Push a new notification to the connected client."""
-        await self.send_json({
-            "type": "notification",
-            "id": event["id"],
-            "title": event["title"],
-            "message": event["message"],
-            "notification_type": event["notification_type"],
-        })
+        await self.send_json(
+            {
+                "type": "notification",
+                "id": event["id"],
+                "title": event["title"],
+                "message": event["message"],
+                "notification_type": event["notification_type"],
+            }
+        )
 
     # ------------------------------------------------------------------
     # DB helpers
@@ -79,9 +83,9 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     def _mark_read(self, user, notification_id: str) -> None:
         from apps.tours.models import Notification
 
-        Notification.objects.filter(
-            pk=notification_id, recipient=user
-        ).update(is_read=True)
+        Notification.objects.filter(pk=notification_id, recipient=user).update(
+            is_read=True
+        )
 
     @database_sync_to_async
     def _mark_all_read(self, user) -> None:

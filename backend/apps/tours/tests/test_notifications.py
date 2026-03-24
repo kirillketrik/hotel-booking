@@ -2,8 +2,8 @@ import pytest
 from django.urls import reverse
 from model_bakery import baker
 
-from apps.tours.models import Notification
 from apps.tours.enums import NotificationType
+from apps.tours.models import Notification
 
 pytestmark = pytest.mark.django_db
 

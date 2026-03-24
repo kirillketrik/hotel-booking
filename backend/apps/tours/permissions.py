@@ -1,7 +1,7 @@
 from rest_framework.permissions import BasePermission
 
-from apps.tours.models import AgencyEmployee
-from apps.tours.enums import EmployeeRole
+from apps.tours.enums import AgencyStatus, EmployeeRole
+from apps.tours.models import Agency, AgencyEmployee
 
 
 def get_employee(user, agency) -> AgencyEmployee | None:
@@ -41,4 +41,22 @@ class IsAgencyMember(BasePermission):
             return False
         return AgencyEmployee.objects.filter(
             user=request.user, agency_id=agency_pk
+        ).exists()
+
+
+class IsApprovedAgency(BasePermission):
+    """
+    Allows access only when the agency identified by `agency_pk` is approved.
+    """
+
+    message = (
+        "This action is not available until the agency is approved."
+    )
+
+    def has_permission(self, request, view):
+        agency_pk = view.kwargs.get("agency_pk")
+        if not agency_pk:
+            return False
+        return Agency.objects.filter(
+            pk=agency_pk, status=AgencyStatus.APPROVED
         ).exists()

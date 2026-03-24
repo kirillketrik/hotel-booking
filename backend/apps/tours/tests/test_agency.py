@@ -21,9 +21,7 @@ class TestAgencyCreate:
 
         agency = Agency.objects.get(name="New Agency")
         assert agency.owner == user
-        assert AgencyEmployee.objects.filter(
-            user=user, agency=agency
-        ).exists()
+        assert AgencyEmployee.objects.filter(user=user, agency=agency).exists()
 
     def test_unauthenticated_returns_403(self, api_client):
         payload = {"name": "Any Agency", "description": "desc"}
@@ -91,9 +89,7 @@ class TestAgencyUpdate:
             "agencies-partial-update-agency",
             kwargs={"pk": approved_agency.pk},
         )
-        response = auth_client.patch(
-            url, {"name": "Updated Agency Name"}
-        )
+        response = auth_client.patch(url, {"name": "Updated Agency Name"})
 
         assert response.status_code == 200
         assert response.data["name"] == "Updated Agency Name"
@@ -150,17 +146,13 @@ class TestAgencyModeration:
         assert agency.status == AgencyStatus.REJECTED
         assert agency.rejection_reason == "Incomplete info"
 
-    def test_non_admin_approve_returns_403(
-        self, auth_client, agency
-    ):
+    def test_non_admin_approve_returns_403(self, auth_client, agency):
         url = reverse("agencies-approve", kwargs={"pk": agency.pk})
         response = auth_client.post(url)
 
         assert response.status_code == 403
 
-    def test_non_admin_reject_returns_403(
-        self, auth_client, agency
-    ):
+    def test_non_admin_reject_returns_403(self, auth_client, agency):
         url = reverse("agencies-reject", kwargs={"pk": agency.pk})
         response = auth_client.post(url, {"reason": "nope"})
 

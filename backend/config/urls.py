@@ -6,7 +6,6 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-
 from apps.tours.routing import websocket_urlpatterns as tours_ws_patterns
 
 websocket_urlpatterns = [

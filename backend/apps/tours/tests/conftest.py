@@ -5,7 +5,7 @@ import pytest
 from model_bakery import baker
 from rest_framework.test import APIClient
 
-from apps.tours.enums import AgencyStatus, EmployeeRole
+from apps.tours.enums import EmployeeRole
 from apps.tours.models import AgencyEmployee, Location
 from apps.tours.services import (
     agency_approve,
@@ -15,7 +15,6 @@ from apps.tours.services import (
     tour_create,
 )
 from apps.users.models import User
-
 
 # ---------------------------------------------------------------------------
 # Users

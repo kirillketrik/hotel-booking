@@ -27,7 +27,9 @@ def inmemory_channel_layer(settings):
 
 @pytest.fixture
 def user(transactional_db):
-    u = baker.prepare(User, email="ws@example.com", first_name="WS", last_name="User")
+    u = baker.prepare(
+        User, email="ws@example.com", first_name="WS", last_name="User"
+    )
     u.set_password("Pass123!")
     u.save()
     return u
@@ -35,7 +37,12 @@ def user(transactional_db):
 
 @pytest.fixture
 def other_user(transactional_db):
-    u = baker.prepare(User, email="other_ws@example.com", first_name="Other", last_name="User")
+    u = baker.prepare(
+        User,
+        email="other_ws@example.com",
+        first_name="Other",
+        last_name="User",
+    )
     u.set_password("Pass123!")
     u.save()
     return u
@@ -141,13 +148,15 @@ class TestReceiveNotification:
         assert message["notification_type"] == NotificationType.TOUR_APPROVED
         await communicator.disconnect()
 
-    async def test_notification_only_goes_to_correct_user(self, user, other_user):
+    async def test_notification_only_goes_to_correct_user(
+        self, user, other_user
+    ):
         comm_user = await make_communicator(user)
         comm_other = await make_communicator(other_user)
 
         await comm_user.connect()
         await comm_other.connect()
-        await comm_user.receive_json_from()   # consume unread_count
+        await comm_user.receive_json_from()  # consume unread_count
         await comm_other.receive_json_from()  # consume unread_count
 
         channel_layer = get_channel_layer()
@@ -196,7 +205,9 @@ class TestMarkRead:
         assert notification.is_read is True
         await communicator.disconnect()
 
-    async def test_mark_read_ignores_other_users_notification(self, user, other_user):
+    async def test_mark_read_ignores_other_users_notification(
+        self, user, other_user
+    ):
         other_notif = await sync_to_async(baker.make)(
             Notification,
             recipient=other_user,
@@ -242,7 +253,9 @@ class TestMarkAllRead:
             assert notif.is_read is True
         await communicator.disconnect()
 
-    async def test_mark_all_read_does_not_affect_other_user(self, user, other_user):
+    async def test_mark_all_read_does_not_affect_other_user(
+        self, user, other_user
+    ):
         other_notif = await sync_to_async(baker.make)(
             Notification,
             recipient=other_user,
