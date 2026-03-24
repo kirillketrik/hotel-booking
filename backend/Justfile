@@ -1,0 +1,55 @@
+set shell := ["/bin/sh", "-cu"]
+
+docker_compose := "docker compose"
+
+default:
+    @just --list
+
+# Поднять окружение
+up:
+    {{docker_compose}} up -d
+
+restart:
+    {{docker_compose}} restart web celery_worker
+
+# Остановить окружение
+down:
+    {{docker_compose}} down
+
+# Пересобрать образ после изменения кода / Dockerfile
+rebuild:
+    {{docker_compose}} up -d --build web
+
+# Полная пересборка без cache (если что-то сломалось)
+rebuild-clean:
+    {{docker_compose}} build --no-cache web
+    {{docker_compose}} up -d web
+
+# Обновить зависимости (uv)
+deps:
+    uv lock
+    {{docker_compose}} build web
+    {{docker_compose}} up -d web
+
+# Тесты
+test *args:
+    {{docker_compose}} exec web uv run --no-sync pytest {{args}}
+
+# Django manage.py
+manage *args:
+    {{docker_compose}} exec web uv run --no-sync manage.py {{args}}
+
+# Миграции
+migrate:
+    {{docker_compose}} exec web uv run --no-sync manage.py migrate
+
+# Shell внутри контейнера
+shell *args:
+    {{docker_compose}} exec web {{args}}
+
+# Логи
+logs:
+    {{docker_compose}} logs -f web
+
+lint:
+    pre-commit run --all-files

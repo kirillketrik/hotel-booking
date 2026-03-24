@@ -1,0 +1,32 @@
+line-length = 79
+target-version = "py312"
+
+exclude = [
+    ".git",
+    "__pycache__",
+    "**/migrations/*",
+    "scripts",
+]
+
+[lint]
+select = ["E", "F", "I", "W", "RUF"]
+ignore = [
+    "E501",
+    "RUF012",
+    "RUF001",
+]
+
+[lint.extend-per-file-ignores]
+"config/asgi.py" = ["E402"]
+"config/wsgi.py" = ["E402"]
+"**/apps.py" = ["F401"]
+"**/models/*.py" = ["RUF012"]
+"**/serializers/*.py" = ["RUF012"]
+"**/views/*.py" = ["RUF012"]
+"**/filters/*.py" = ["RUF012"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+

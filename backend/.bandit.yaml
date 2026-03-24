@@ -1,0 +1,17 @@
+skips:
+  - B101
+  - B311
+  - B608
+
+targets:
+  - "apps"
+  - "common"
+  - "core"
+
+exclude_dirs:
+  - "**/tests"
+  - "**/migrations"
+  - ".venv"
+
+level: MEDIUM
+confidence: MEDIUM
