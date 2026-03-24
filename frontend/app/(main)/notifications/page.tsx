@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
-import { useAuthStore } from '@/lib/store'
+import { api, apiEndpoints } from '@/lib/api'
 import { PageShell } from '@/components/page-shell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,7 +16,6 @@ async function fetchNotifications() {
 }
 
 export default function NotificationsPage() {
-  const { user } = useAuthStore()
   const [notifications, setNotifications] = useState<Notification[]>([])
 
   const { data, isLoading } = useQuery({
@@ -42,7 +40,7 @@ export default function NotificationsPage() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await api.patch(`/api/v1/notifications/${notificationId}/`, { is_read: true })
+      await apiEndpoints.notifications.markRead(notificationId)
       setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, is_read: true } : n
       ))

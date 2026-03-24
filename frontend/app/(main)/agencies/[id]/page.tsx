@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Users, BarChart3, Clock, XCircle } from 'lucide-react'
 import type { Agency, Tour } from '@/lib/types'
+import React from "react";
 
 const STATUS_BANNER: Record<string, { icon: React.ReactNode; text: string; className: string }> = {
   pending: {

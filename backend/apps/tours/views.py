@@ -330,6 +330,7 @@ class TourViewSet(
 
 class NotificationViewSet(
     mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     serializer_class = NotificationSerializer
