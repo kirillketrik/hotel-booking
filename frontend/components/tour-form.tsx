@@ -4,7 +4,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery as useRQQuery } from '@tanstack/react-query'
 import { Plus, Trash2, ChevronLeft, ChevronRight, Upload, X } from 'lucide-react'
 import Link from 'next/link'
 import { useState, useRef } from 'react'
@@ -31,9 +31,11 @@ const roomSchema = z.object({
 })
 
 const hotelSchema = z.object({
+  _hotel_id: z.string().optional(),
   name: z.string().min(1, 'Required'),
   description: z.string().optional(),
   stars: z.coerce.number().min(1).max(5),
+  amenity_ids: z.array(z.string()).optional(),
   rooms: z.array(roomSchema).optional(),
 })
 
@@ -78,6 +80,15 @@ export function TourForm({ agencyId, tourId, initialData }: TourFormProps) {
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const coverRef = useRef<HTMLInputElement>(null)
 
+  // Parallel state: one entry per hotel in hotelFields (same index)
+  const [hotelImageSets, setHotelImageSets] = useState<HotelImageSet[]>(() =>
+    (initialData?.hotels ?? []).map((h) => ({
+      keepIds: h.images.map((i) => i.id),
+      newFiles: [],
+      newPreviews: [],
+    }))
+  )
+
   const {
     register,
     handleSubmit,
@@ -100,9 +111,11 @@ export function TourForm({ agencyId, tourId, initialData }: TourFormProps) {
       latitude: initialData?.location?.latitude?.toString() ?? '',
       longitude: initialData?.location?.longitude?.toString() ?? '',
       hotels: initialData?.hotels?.map((h) => ({
+        _hotel_id: h.id,
         name: h.name,
         description: h.description,
         stars: h.stars,
+        amenity_ids: h.amenities?.map((a) => a.id) ?? [],
         rooms: h.rooms.map((r) => ({
           room_type: r.room_type,
           description: r.description,
@@ -127,27 +140,48 @@ export function TourForm({ agencyId, tourId, initialData }: TourFormProps) {
   const endDate = watch('end_date')
   const durationDays = startDate && endDate ? differenceInCalendarDays(new Date(endDate), new Date(startDate)) : null
 
+  const { data: amenitiesData } = useRQQuery({
+    queryKey: ['amenities'],
+    queryFn: () => apiEndpoints.amenities.list().then((r) => r.data.results ?? r.data),
+  })
+  const allAmenities: { id: string; name: string }[] = amenitiesData ?? []
+
   const mutation = useMutation({
     mutationFn: (data: TourFormData) => {
-      const payload = {
-        title: data.title,
-        description: data.description,
-        price: data.price,
-        start_date: data.start_date,
-        end_date: data.end_date,
-        max_adults: data.max_adults,
-        max_children: data.max_children,
-        location: {
-          country: data.country,
-          city: data.city,
-          latitude: data.latitude ? Number(data.latitude) : null,
-          longitude: data.longitude ? Number(data.longitude) : null,
-        },
-        hotels: data.hotels ?? [],
-        transfers: data.transfers ?? [],
-      }
-      if (tourId) return apiEndpoints.tours.update(agencyId, tourId, payload).then((r) => r.data)
-      return apiEndpoints.tours.create(agencyId, payload).then((r) => r.data)
+      const fd = new FormData()
+      fd.append('title', data.title)
+      fd.append('description', data.description)
+      fd.append('price', data.price)
+      fd.append('start_date', data.start_date)
+      fd.append('end_date', data.end_date)
+      fd.append('max_adults', String(data.max_adults))
+      fd.append('max_children', String(data.max_children))
+      fd.append('location', JSON.stringify({
+        country: data.country,
+        city: data.city,
+        latitude: data.latitude ? Number(data.latitude) : null,
+        longitude: data.longitude ? Number(data.longitude) : null,
+      }))
+      if (coverFile) fd.append('cover_image', coverFile)
+
+      const hotelsJson = (data.hotels ?? []).map((h, idx) => ({
+        ...(h._hotel_id ? { id: h._hotel_id } : {}),
+        name: h.name,
+        description: h.description ?? '',
+        stars: h.stars,
+        amenity_ids: h.amenity_ids ?? [],
+        existing_image_ids: hotelImageSets[idx]?.keepIds ?? [],
+        rooms: h.rooms ?? [],
+      }))
+      fd.append('hotels', JSON.stringify(hotelsJson))
+      hotelImageSets.forEach((imgSet, idx) => {
+        imgSet.newFiles.forEach((f) => fd.append(`hotel_images_${idx}`, f))
+      })
+
+      fd.append('transfers', JSON.stringify(data.transfers ?? []))
+
+      if (tourId) return apiEndpoints.tours.update(agencyId, tourId, fd).then((r) => r.data)
+      return apiEndpoints.tours.create(agencyId, fd).then((r) => r.data)
     },
     onSuccess: (tour) => {
       qc.invalidateQueries({ queryKey: ['agency-tours', agencyId] })
@@ -276,20 +310,39 @@ export function TourForm({ agencyId, tourId, initialData }: TourFormProps) {
 
     // Step 3: Hotels
     <div key="hotels" className="flex flex-col gap-4">
-      {hotelFields.map((field, hotelIdx) => (
-        <HotelBlock
-          key={field.id}
-          control={control}
-          register={register}
-          index={hotelIdx}
-          onRemove={() => removeHotel(hotelIdx)}
-          errors={errors}
-        />
-      ))}
+      {hotelFields.map((field, hotelIdx) => {
+        const existingImages = initialData?.hotels.find((h) => h.id === field._hotel_id)?.images ?? []
+        return (
+          <HotelBlock
+            key={field.id}
+            control={control}
+            register={register}
+            index={hotelIdx}
+            onRemove={() => {
+              removeHotel(hotelIdx)
+              setHotelImageSets((prev) => prev.filter((_, i) => i !== hotelIdx))
+            }}
+            errors={errors}
+            allAmenities={allAmenities}
+            existingImages={existingImages}
+            imageSet={hotelImageSets[hotelIdx] ?? { keepIds: [], newFiles: [], newPreviews: [] }}
+            onImageSetChange={(v) =>
+              setHotelImageSets((prev) => {
+                const next = [...prev]
+                next[hotelIdx] = v
+                return next
+              })
+            }
+          />
+        )
+      })}
       <Button
         type="button"
         variant="outline"
-        onClick={() => appendHotel({ name: '', description: '', stars: 3, rooms: [] })}
+        onClick={() => {
+          appendHotel({ _hotel_id: undefined, name: '', description: '', stars: 3, amenity_ids: [], rooms: [] })
+          setHotelImageSets((prev) => [...prev, { keepIds: [], newFiles: [], newPreviews: [] }])
+        }}
         className="w-full"
       >
         <Plus className="w-4 h-4 mr-1" /> Add Hotel
@@ -412,14 +465,51 @@ export function TourForm({ agencyId, tourId, initialData }: TourFormProps) {
 }
 
 // --- Hotel block sub-component ---
-function HotelBlock({ control, register, index, onRemove, errors }: {
+type HotelImageSet = { keepIds: string[]; newFiles: File[]; newPreviews: string[] }
+
+function HotelBlock({
+  control, register, index, onRemove, errors, allAmenities,
+  existingImages, imageSet, onImageSetChange,
+}: {
   control: ReturnType<typeof useForm<TourFormData>>['control']
   register: ReturnType<typeof useForm<TourFormData>>['register']
   index: number
   onRemove: () => void
   errors: ReturnType<typeof useForm<TourFormData>>['formState']['errors']
+  allAmenities: { id: string; name: string }[]
+  existingImages: { id: string; image: string; order: number }[]
+  imageSet: HotelImageSet
+  onImageSetChange: (v: HotelImageSet) => void
 }) {
   const { fields: roomFields, append: appendRoom, remove: removeRoom } = useFieldArray({ control, name: `hotels.${index}.rooms` })
+  const imgInputRef = useRef<HTMLInputElement>(null)
+
+  const handleNewImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    const previews = files.map((f) => URL.createObjectURL(f))
+    onImageSetChange({
+      ...imageSet,
+      newFiles: [...imageSet.newFiles, ...files],
+      newPreviews: [...imageSet.newPreviews, ...previews],
+    })
+    e.target.value = ''
+  }
+
+  const removeExisting = (id: string) => {
+    onImageSetChange({ ...imageSet, keepIds: imageSet.keepIds.filter((k) => k !== id) })
+  }
+
+  const removeNew = (idx: number) => {
+    URL.revokeObjectURL(imageSet.newPreviews[idx])
+    onImageSetChange({
+      ...imageSet,
+      newFiles: imageSet.newFiles.filter((_, i) => i !== idx),
+      newPreviews: imageSet.newPreviews.filter((_, i) => i !== idx),
+    })
+  }
+
+  const keptExisting = existingImages.filter((img) => imageSet.keepIds.includes(img.id))
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -443,6 +533,101 @@ function HotelBlock({ control, register, index, onRemove, errors }: {
         <div className="flex flex-col gap-1.5">
           <Label>Description <span className="text-muted-foreground">(optional)</span></Label>
           <Textarea rows={2} {...register(`hotels.${index}.description`)} />
+        </div>
+
+        {/* Amenities checkbox picker */}
+        {allAmenities.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Amenities</Label>
+            <Controller
+              control={control}
+              name={`hotels.${index}.amenity_ids`}
+              render={({ field }) => (
+                <div className="flex flex-wrap gap-2">
+                  {allAmenities.map((amenity) => {
+                    const checked = (field.value ?? []).includes(amenity.id)
+                    return (
+                      <label
+                        key={amenity.id}
+                        className={cn(
+                          'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-colors',
+                          checked
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background border-border hover:bg-muted'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={checked}
+                          onChange={() => {
+                            const current = field.value ?? []
+                            field.onChange(
+                              checked
+                                ? current.filter((id) => id !== amenity.id)
+                                : [...current, amenity.id]
+                            )
+                          }}
+                        />
+                        {amenity.name}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            />
+          </div>
+        )}
+
+        {/* Hotel images */}
+        <div className="flex flex-col gap-2">
+          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Photos</Label>
+          {(keptExisting.length > 0 || imageSet.newPreviews.length > 0) && (
+            <div className="grid grid-cols-3 gap-2">
+              {keptExisting.map((img) => (
+                <div key={img.id} className="relative aspect-video rounded-md overflow-hidden bg-muted group">
+                  <img src={img.image} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeExisting(img.id)}
+                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Remove photo"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {imageSet.newPreviews.map((src, i) => (
+                <div key={src} className="relative aspect-video rounded-md overflow-hidden bg-muted group">
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeNew(i)}
+                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Remove photo"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => imgInputRef.current?.click()}
+            className="flex items-center gap-2 text-sm text-muted-foreground border border-dashed border-border rounded-md px-3 py-2 hover:bg-muted transition-colors w-fit"
+          >
+            <Upload className="w-4 h-4" />
+            Add photos
+          </button>
+          <input
+            ref={imgInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            className="sr-only"
+            onChange={handleNewImages}
+          />
         </div>
 
         {/* Rooms */}

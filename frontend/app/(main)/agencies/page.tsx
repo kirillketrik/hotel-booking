@@ -7,7 +7,7 @@ import { PageShell } from '@/components/page-shell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Users } from 'lucide-react'
+import { Plus, Building2 } from 'lucide-react'
 import type { Agency } from '@/lib/types'
 
 const STATUS_STYLES: Record<Agency['status'], { label: string; className: string }> = {
@@ -52,7 +52,7 @@ export default function AgenciesPage() {
           <Card>
             <CardContent className="pt-8">
               <div className="text-center">
-                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
                 <p className="text-muted-foreground mb-4">No agencies yet. Create your first one!</p>
                 <Link href="/agencies/new">
                   <Button variant="outline">Create Agency</Button>
@@ -80,17 +80,6 @@ export default function AgenciesPage() {
                       </span>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{agency.staff_count || 0} staff</span>
-                    </div>
-                    <div className="pt-2">
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <span>View Agency</span>
-                      </Button>
-                    </div>
-                  </CardContent>
                 </Card>
               </Link>
             ))}

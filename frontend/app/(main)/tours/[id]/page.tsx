@@ -1,13 +1,20 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, apiEndpoints } from '@/lib/api';
 import { PageShell } from '@/components/page-shell';
 import { StatusBadge } from '@/components/status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Clock, Users, MapPin, AlertCircle, Plane } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Clock, Users, MapPin, AlertCircle, Plane, Pencil, Star, BedDouble, ShieldCheck, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuthStore } from '@/lib/store';
+import { useState } from 'react';
 import type { Tour } from '@/lib/types';
 
 async function fetchTour(tourId: string): Promise<Tour> {
@@ -18,10 +25,34 @@ async function fetchTour(tourId: string): Promise<Tour> {
 export default function TourDetailPage() {
   const params = useParams();
   const tourId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { isStaff } = useAuthStore();
+  const qc = useQueryClient();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const { data: tour, isLoading } = useQuery({
     queryKey: ['tour', tourId],
     queryFn: () => fetchTour(tourId),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: () => apiEndpoints.tours.approve(tour!.agency, tourId),
+    onSuccess: () => {
+      toast.success('Tour approved');
+      qc.invalidateQueries({ queryKey: ['tour', tourId] });
+    },
+    onError: () => toast.error('Failed to approve tour'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (reason: string) => apiEndpoints.tours.reject(tour!.agency, tourId, reason),
+    onSuccess: () => {
+      toast.success('Tour rejected');
+      setRejectOpen(false);
+      setRejectReason('');
+      qc.invalidateQueries({ queryKey: ['tour', tourId] });
+    },
+    onError: () => toast.error('Failed to reject tour'),
   });
 
   if (isLoading) {
@@ -67,11 +98,43 @@ export default function TourDetailPage() {
               <span>{tour.location.city}, {tour.location.country}</span>
             </div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 flex flex-col items-end gap-2">
             <p className="text-3xl font-bold text-primary">${tour.price}</p>
             <p className="text-xs text-muted-foreground">per person</p>
-            <div className="mt-2">
-              <StatusBadge status={tour.status} />
+            <StatusBadge status={tour.status} />
+            {tour.status === 'rejected' && tour.rejection_reason && (
+              <p className="text-xs text-destructive max-w-[200px] text-right">
+                {tour.rejection_reason}
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              {isStaff() && tour.status !== 'approved' && (
+                <Button
+                  size="sm"
+                  disabled={approveMutation.isPending}
+                  onClick={() => approveMutation.mutate()}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                  Approve
+                </Button>
+              )}
+              {isStaff() && tour.status !== 'rejected' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setRejectOpen(true)}
+                >
+                  <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                  Reject
+                </Button>
+              )}
+              <Link href={`/agencies/${tour.agency}/tours/${tourId}/edit`}>
+                <Button size="sm" variant="outline">
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -126,6 +189,77 @@ export default function TourDetailPage() {
           </CardContent>
         </Card>
 
+        {/* Hotels */}
+        {tour.hotels.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Hotels</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {tour.hotels.map((hotel) => (
+                <div key={hotel.id} className="border-b last:border-0 pb-6 last:pb-0">
+                  {/* Hotel header */}
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-base">{hotel.name}</h3>
+                    <div className="flex items-center gap-0.5 text-yellow-500 shrink-0">
+                      {Array.from({ length: hotel.stars }).map((_, i) => (
+                        <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">{hotel.description}</p>
+
+                  {/* Amenities */}
+                  {hotel.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {hotel.amenities.map((a) => (
+                        <span key={a.id} className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                          {a.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Rooms */}
+                  {hotel.rooms.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Rooms</p>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {hotel.rooms.map((room) => (
+                          <div key={room.id} className="flex items-start gap-2 border rounded-lg p-3">
+                            <BedDouble className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium capitalize">{room.room_type}</p>
+                                <p className="text-sm font-semibold text-primary shrink-0">${room.price_per_night}<span className="text-xs font-normal text-muted-foreground">/night</span></p>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">{room.description}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Capacity: {room.capacity} · {room.quantity} available
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hotel images */}
+                  {hotel.images.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      {hotel.images.map((img) => (
+                        <div key={img.id} className="aspect-video rounded-lg overflow-hidden bg-muted">
+                          <img src={img.image} alt={hotel.name} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Transfers */}
         {tour.transfers.length > 0 && (
           <Card className="mb-6">
@@ -154,26 +288,6 @@ export default function TourDetailPage() {
           </Card>
         )}
 
-        {/* Hotels */}
-        {tour.hotels.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Hotels</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {tour.hotels.map((hotel) => (
-                <div key={hotel.id} className="border-b last:border-0 pb-4 last:pb-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-semibold">{hotel.name}</p>
-                    <p className="text-sm text-muted-foreground">{'★'.repeat(hotel.stars)}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{hotel.description}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Gallery */}
         {tour.images.length > 0 && (
           <Card>
@@ -192,6 +306,33 @@ export default function TourDetailPage() {
           </Card>
         )}
       </div>
+
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Tour</DialogTitle>
+            <DialogDescription>
+              Provide an optional reason that will be visible to the agency.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Reason for rejection (optional)"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={rejectMutation.isPending}
+              onClick={() => rejectMutation.mutate(rejectReason)}
+            >
+              Confirm Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }

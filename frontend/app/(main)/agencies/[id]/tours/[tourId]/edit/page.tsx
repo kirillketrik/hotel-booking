@@ -6,7 +6,6 @@ import { api } from '@/lib/api'
 import { PageShell } from '@/components/page-shell'
 import { TourForm } from '@/components/tour-form'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { Tour } from '@/lib/types'
 
 async function fetchTour(agencyId: string, tourId: string) {
   const res = await api.get(`/api/v1/agencies/${agencyId}/tours/${tourId}/`)
@@ -44,15 +43,5 @@ export default function EditTourPage() {
     )
   }
 
-  return (
-    <PageShell>
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Edit Tour</h1>
-          <p className="text-muted-foreground mt-1">Update tour details and pricing</p>
-        </div>
-        <TourForm agencyId={agencyId} initialTour={tour} />
-      </div>
-    </PageShell>
-  )
+  return <TourForm agencyId={agencyId} tourId={tourId} initialData={tour} />
 }

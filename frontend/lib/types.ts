@@ -13,6 +13,7 @@ export interface User {
   first_name: string
   last_name: string
   groups: string[]
+  is_staff: boolean
 }
 
 export interface Agency {
@@ -29,15 +30,23 @@ export interface Agency {
 export interface AgencyEmployee {
   id: string
   user: string
+  user_email: string
+  user_first_name: string
+  user_last_name: string
   agency: string
-  role: 'admin' | 'operator'
-  joined_at: string
+  role: 'owner' | 'admin' | 'operator'
+  created_at: string
 }
 
 export interface Invitation {
   id: string
+  agency: string
+  agency_name: string
   invited_email: string | null
   invited_user: string | null
+  invited_user_email: string | null
+  invited_user_full_name: string | null
+  role: 'admin' | 'operator'
   token: string
   status: 'pending' | 'accepted' | 'rejected'
   expires_at: string | null
@@ -81,6 +90,7 @@ export interface TourTransfer {
 export interface Tour {
   id: string
   agency: string
+  agency_name: string
   title: string
   description: string
   cover_image: string | null

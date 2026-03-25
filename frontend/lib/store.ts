@@ -21,8 +21,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAgencyAdmin: () => get().user?.groups.includes('agency_admin') ?? false,
   isAgencyOperator: () => get().user?.groups.includes('agency_operator') ?? false,
   isStaff: () => {
-    const groups = get().user?.groups ?? []
-    return groups.includes('staff') || groups.includes('platform_staff')
+    const user = get().user
+    if (!user) return false
+    return (
+      user.is_staff ||
+      user.groups.includes('staff') ||
+      user.groups.includes('platform_staff')
+    )
   },
 }))
 

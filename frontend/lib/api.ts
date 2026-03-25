@@ -85,16 +85,21 @@ export const apiEndpoints = {
   },
 
   employees: {
-    list: (agencyId: string, params?: Record<string, unknown>) =>
-      api.get(`/api/v1/agencies/${agencyId}/employees/`, { params }),
+    list: (agencyId: string) => api.get(`/api/v1/agencies/${agencyId}/employees/`),
     remove: (agencyId: string, employeeId: string) =>
       api.delete(`/api/v1/agencies/${agencyId}/employees/${employeeId}/`),
+    updateRole: (agencyId: string, employeeId: string, role: string) =>
+      api.patch(`/api/v1/agencies/${agencyId}/employees/${employeeId}/role/`, { role }),
   },
 
   invitations: {
     list: (agencyId: string) => api.get(`/api/v1/agencies/${agencyId}/invitations/`),
     create: (agencyId: string, data: unknown) =>
       api.post(`/api/v1/agencies/${agencyId}/invitations/`, data),
+    delete: (agencyId: string, invitationId: string) =>
+      api.delete(`/api/v1/agencies/${agencyId}/invitations/${invitationId}/`),
+    listMine: () => api.get('/api/v1/invitations/'),
+    get: (token: string) => api.get(`/api/v1/invitations/${token}/`),
     accept: (token: string) => api.post(`/api/v1/invitations/${token}/accept/`),
     reject: (token: string) => api.post(`/api/v1/invitations/${token}/reject/`),
   },
@@ -104,14 +109,29 @@ export const apiEndpoints = {
       api.get(`/api/v1/agencies/${agencyId}/tours/`, { params }),
     get: (agencyId: string, tourId: string) =>
       api.get(`/api/v1/agencies/${agencyId}/tours/${tourId}/`),
-    create: (agencyId: string, data: unknown) =>
+    create: (agencyId: string, data: FormData) =>
       api.post(`/api/v1/agencies/${agencyId}/tours/`, data),
-    update: (agencyId: string, tourId: string, data: unknown) =>
+    update: (agencyId: string, tourId: string, data: FormData) =>
       api.patch(`/api/v1/agencies/${agencyId}/tours/${tourId}/update/`, data),
     approve: (agencyId: string, tourId: string) =>
       api.post(`/api/v1/agencies/${agencyId}/tours/${tourId}/approve/`),
     reject: (agencyId: string, tourId: string, reason?: string) =>
       api.post(`/api/v1/agencies/${agencyId}/tours/${tourId}/reject/`, { reason }),
+  },
+
+  amenities: {
+    list: () => api.get('/api/v1/amenities/'),
+  },
+
+  admin: {
+    agencies: {
+      list: (params?: Record<string, unknown>) =>
+        api.get('/api/v1/agencies/', { params }),
+    },
+    tours: {
+      list: (params?: Record<string, unknown>) =>
+        api.get('/api/v1/tours/', { params }),
+    },
   },
 
   notifications: {

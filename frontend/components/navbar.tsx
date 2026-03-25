@@ -9,11 +9,11 @@ import {
   ChevronDown,
   LogOut,
   Building2,
-  Settings,
   ShieldCheck,
   Menu,
   X,
   MapPin,
+  Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,7 +28,8 @@ import { useAuthStore, useNotificationStore } from '@/lib/store'
 import { apiEndpoints } from '@/lib/api'
 import { NotificationDropdown } from './notification-dropdown'
 import { cn } from '@/lib/utils'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Invitation } from '@/lib/types'
 
 export function Navbar() {
   const { user, setUser, isStaff } = useAuthStore()
@@ -36,6 +37,19 @@ export function Navbar() {
   const router = useRouter()
   const qc = useQueryClient()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const { data: invitations } = useQuery({
+    queryKey: ['my-invitations'],
+    queryFn: (): Promise<Invitation[]> =>
+      apiEndpoints.invitations.listMine().then((r) => {
+        const d = r.data
+        return Array.isArray(d) ? d : (d.results ?? [])
+      }),
+    enabled: !!user,
+  })
+  const pendingInvitations = Array.isArray(invitations)
+    ? invitations.filter((i) => i.status === 'pending').length
+    : 0
 
   const logoutMutation = useMutation({
     mutationFn: () => apiEndpoints.logout().then((r) => r.data),
@@ -62,9 +76,19 @@ export function Navbar() {
               Browse Tours
             </Link>
             {user && (
-              <Link href="/agencies" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors">
-                My Agencies
-              </Link>
+              <>
+                <Link href="/agencies" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors">
+                  My Agencies
+                </Link>
+                <Link href="/invitations" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1">
+                  Invitations
+                  {pendingInvitations > 0 && (
+                    <span className="bg-primary text-primary-foreground rounded-full text-xs px-1.5 py-0.5 leading-none">
+                      {pendingInvitations}
+                    </span>
+                  )}
+                </Link>
+              </>
             )}
             {isStaff() && (
               <Link href="/admin/moderation" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1">
@@ -100,6 +124,17 @@ export function Navbar() {
                       <Link href="/agencies" className="flex items-center gap-2">
                         <Building2 className="w-4 h-4" />
                         My Agencies
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/invitations" className="flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        Invitations
+                        {pendingInvitations > 0 && (
+                          <span className="ml-auto bg-primary text-primary-foreground rounded-full text-xs px-1.5 py-0.5">
+                            {pendingInvitations}
+                          </span>
+                        )}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -171,6 +206,14 @@ export function Navbar() {
             <>
               <Link href="/agencies" className="py-2 text-sm text-foreground" onClick={() => setMobileOpen(false)}>
                 My Agencies
+              </Link>
+              <Link href="/invitations" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                Invitations
+                {pendingInvitations > 0 && (
+                  <span className="bg-primary text-primary-foreground rounded-full text-xs px-1.5 py-0.5 leading-none">
+                    {pendingInvitations}
+                  </span>
+                )}
               </Link>
               <Link href="/notifications" className="py-2 text-sm text-foreground" onClick={() => setMobileOpen(false)}>
                 Notifications {unreadCount > 0 && `(${unreadCount})`}
