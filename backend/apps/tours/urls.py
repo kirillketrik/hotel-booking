@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from apps.tours.views import (
     AgencyEmployeeViewSet,
     AgencyViewSet,
+    AmenityViewSet,
     InvitationRespondViewSet,
     InvitationViewSet,
     NotificationViewSet,
@@ -34,6 +35,10 @@ invitation_respond_router.register(r"", InvitationRespondViewSet, basename="invi
 notification_router = DefaultRouter()
 notification_router.register(r"", NotificationViewSet, basename="notifications")
 
+# /api/v1/amenities/
+amenity_router = DefaultRouter()
+amenity_router.register(r"", AmenityViewSet, basename="amenities")
+
 # /api/v1/tours/  (public catalog — must be last)
 public_tour_router = DefaultRouter()
 public_tour_router.register(r"", TourViewSet, basename="public-tours")
@@ -43,6 +48,7 @@ urlpatterns = [
     path("api/v1/agencies/<uuid:agency_pk>/invitations/", include(agency_invitation_router.urls)),
     path("api/v1/agencies/<uuid:agency_pk>/tours/", include(agency_tour_router.urls)),
     path("api/v1/agencies/", include(agency_router.urls)),
+    path("api/v1/amenities/", include(amenity_router.urls)),
     path("api/v1/invitations/", include(invitation_respond_router.urls)),
     path("api/v1/notifications/", include(notification_router.urls)),
     # Must be last — catches /api/v1/tours/<pk>/

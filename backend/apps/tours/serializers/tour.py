@@ -22,12 +22,16 @@ class TourSerializer(serializers.ModelSerializer):
     images = TourImageSerializer(many=True, read_only=True)
     hotels = HotelSerializer(many=True, read_only=True)
     transfers = TourTransferSerializer(many=True, read_only=True)
+    agency_name = serializers.CharField(
+        source="agency.name", read_only=True
+    )
 
     class Meta:
         model = Tour
         fields = (
             "id",
             "agency",
+            "agency_name",
             "title",
             "description",
             "cover_image",

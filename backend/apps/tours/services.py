@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from apps.common.notifications import notify, notify_admins
+from apps.common.notifications import notify_admins, notify_async
 from apps.tours.enums import (
     AgencyStatus,
     EmployeeRole,
@@ -31,7 +31,6 @@ def agency_create(*, user, name: str, description: str, logo=None) -> Agency:
     agency = Agency(
         name=name,
         description=description,
-        owner=user,
         status=AgencyStatus.PENDING,
     )
     if logo:
@@ -41,7 +40,7 @@ def agency_create(*, user, name: str, description: str, logo=None) -> Agency:
     AgencyEmployee.objects.create(
         user=user,
         agency=agency,
-        role=EmployeeRole.ADMIN,
+        role=EmployeeRole.OWNER,
     )
 
     notify_admins(
@@ -113,20 +112,37 @@ def invitation_create(
     agency: Agency,
     created_by: AgencyEmployee,
     invited_email: str | None = None,
-    invited_user=None,
+    invited_user_id=None,
+    role: str = "operator",
     expires_at=None,
 ) -> Invitation:
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    invited_user = None
+
+    if invited_user_id:
+        # Explicit user ID — must exist
+        invited_user = User.objects.filter(pk=invited_user_id).first()
+        if not invited_user:
+            raise ValidationError("No user found with the given ID.")
+    elif invited_email:
+        # Email provided — resolve to account if one exists
+        invited_user = User.objects.filter(email__iexact=invited_email).first()
+    # else: anonymous invitation — anyone with the link can accept
+
     invitation = Invitation(
         agency=agency,
         created_by=created_by,
         invited_email=invited_email,
         invited_user=invited_user,
+        role=role,
         expires_at=expires_at,
     )
     invitation.save()
 
     if invited_user:
-        notify(
+        notify_async(
             recipient=invited_user,
             title=f"You have been invited to join {agency.name}",
             message=(
@@ -145,7 +161,7 @@ def invitation_accept(*, invitation: Invitation, user) -> AgencyEmployee:
     employee = AgencyEmployee.objects.create(
         user=user,
         agency=invitation.agency,
-        role=EmployeeRole.OPERATOR,
+        role=invitation.role,
     )
 
     invitation.status = InvitationStatus.ACCEPTED
@@ -170,8 +186,15 @@ def _validate_invitation(*, invitation: Invitation, user) -> None:
     if invitation.expires_at and invitation.expires_at < timezone.now():
         raise ValidationError("This invitation has expired.")
 
-    if invitation.invited_user and invitation.invited_user != user:
-        raise ValidationError("This invitation was sent to a different user.")
+    if invitation.invited_user:
+        # User-targeted: only the linked user may respond
+        if invitation.invited_user != user:
+            raise ValidationError("This invitation was sent to a different user.")
+    elif invitation.invited_email:
+        # Email-targeted but no account existed at invite time: match by email
+        if invitation.invited_email.lower() != user.email.lower():
+            raise ValidationError("This invitation was sent to a different email address.")
+    # else: anonymous link — any authenticated user may accept
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +271,9 @@ def tour_create(
 
 
 def _create_hotel(*, tour: Tour, hotel_data: dict) -> Hotel:
+    hotel_data = dict(hotel_data)
+    hotel_data.pop("id", None)
+    hotel_data.pop("existing_image_ids", None)
     rooms_data = hotel_data.pop("rooms", [])
     images_data = hotel_data.pop("images", [])
     amenity_ids = hotel_data.pop("amenity_ids", [])
@@ -269,7 +295,44 @@ def _create_hotel(*, tour: Tour, hotel_data: dict) -> Hotel:
     return hotel
 
 
-def tour_update(*, tour: Tour, **data) -> Tour:
+def _upsert_hotel(*, tour: Tour, hotel_data: dict) -> Hotel:
+    hotel_data = dict(hotel_data)
+    hotel_id = hotel_data.pop("id", None)
+    rooms_data = hotel_data.pop("rooms", []) or []
+    new_images = hotel_data.pop("images", [])
+    existing_image_ids = hotel_data.pop("existing_image_ids", [])
+    amenity_ids = hotel_data.pop("amenity_ids", [])
+
+    if hotel_id:
+        hotel = Hotel.objects.get(pk=hotel_id, tour=tour)
+        for k, v in hotel_data.items():
+            setattr(hotel, k, v)
+        hotel.save()
+        hotel.amenities.set(amenity_ids)
+        hotel.images.exclude(pk__in=existing_image_ids).delete()
+        hotel.rooms.all().delete()
+    else:
+        hotel = Hotel(tour=tour, **hotel_data)
+        hotel.save()
+        hotel.amenities.set(amenity_ids)
+
+    if rooms_data:
+        HotelRoom.objects.bulk_create(
+            [HotelRoom(hotel=hotel, **r) for r in rooms_data]
+        )
+
+    existing_count = hotel.images.count()
+    for idx, image_file in enumerate(new_images):
+        HotelImage.objects.create(
+            hotel=hotel, image=image_file, order=existing_count + idx
+        )
+
+    return hotel
+
+
+def tour_update(
+    *, tour: Tour, hotels: list[dict] | None = None, **data
+) -> Tour:
     allowed_fields = {
         "title",
         "description",
@@ -290,6 +353,12 @@ def tour_update(*, tour: Tour, **data) -> Tour:
     tour.status = TourStatus.PENDING
     tour.rejection_reason = ""
     tour.save()
+
+    if hotels is not None:
+        submitted_ids = {h["id"] for h in hotels if "id" in h}
+        tour.hotels.exclude(pk__in=submitted_ids).delete()
+        for hotel_data in hotels:
+            _upsert_hotel(tour=tour, hotel_data=dict(hotel_data))
 
     notify_admins(
         title="Tour updated — pending re-review",
@@ -338,12 +407,12 @@ def tour_reject(*, tour: Tour, reason: str) -> Tour:
 def _notify_agency_admins(
     *, agency: Agency, title: str, message: str, notification_type: str
 ) -> None:
-    """Notify all employees with role=ADMIN of the given agency."""
-    admins = AgencyEmployee.objects.filter(
-        agency=agency, role=EmployeeRole.ADMIN
+    """Enqueue notifications for all owner/admin employees of the agency."""
+    employees = AgencyEmployee.objects.filter(
+        agency=agency, role__in=[EmployeeRole.OWNER, EmployeeRole.ADMIN]
     ).select_related("user")
-    for employee in admins:
-        notify(
+    for employee in employees:
+        notify_async(
             recipient=employee.user,
             title=title,
             message=message,

@@ -61,14 +61,47 @@ def notify(
     backends: list[BaseNotificationBackend] | None = None,
 ) -> None:
     """
-    Send a notification to a recipient.
-
-    Pass custom backends to extend delivery channels (e.g. email, push).
-    Defaults to in-app notification only.
+    Send a notification synchronously (runs in the calling thread).
+    Used internally by the Celery worker — call notify_async() from
+    application code so delivery is offloaded to a worker process.
     """
     active_backends = backends or [InAppNotificationBackend()]
     for backend in active_backends:
         backend.send(
+            recipient=recipient,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+        )
+
+
+def notify_async(
+    *,
+    recipient,
+    title: str,
+    message: str,
+    notification_type: str,
+) -> None:
+    """
+    Enqueue a notification via Celery. Falls back to synchronous delivery
+    if the broker is unavailable so the calling request is never broken.
+    """
+    import logging
+
+    from apps.tours.tasks import send_notification_task
+
+    try:
+        send_notification_task.delay(
+            recipient_id=recipient.pk,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "Celery broker unavailable — sending notification synchronously"
+        )
+        notify(
             recipient=recipient,
             title=title,
             message=message,
@@ -81,18 +114,15 @@ def notify_admins(
     title: str,
     message: str,
     notification_type: str,
-    backends: list[BaseNotificationBackend] | None = None,
 ) -> None:
-    """Send a notification to all Django staff/superusers."""
+    """Enqueue notifications for all Django staff/superusers."""
     from django.contrib.auth import get_user_model
 
     UserModel = get_user_model()
-    admins = UserModel.objects.filter(is_staff=True)
-    for admin in admins:
-        notify(
+    for admin in UserModel.objects.filter(is_staff=True):
+        notify_async(
             recipient=admin,
             title=title,
             message=message,
             notification_type=notification_type,
-            backends=backends,
         )

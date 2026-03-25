@@ -24,7 +24,9 @@ class IsAgencyAdmin(BasePermission):
         if not agency_pk:
             return False
         employee = get_employee(request.user, agency_pk)
-        return employee is not None and employee.role == EmployeeRole.ADMIN
+        return employee is not None and employee.role in (
+            EmployeeRole.OWNER, EmployeeRole.ADMIN
+        )
 
 
 class IsAgencyMember(BasePermission):
@@ -54,6 +56,8 @@ class IsApprovedAgency(BasePermission):
     )
 
     def has_permission(self, request, view):
+        if request.user and request.user.is_staff:
+            return True
         agency_pk = view.kwargs.get("agency_pk")
         if not agency_pk:
             return False

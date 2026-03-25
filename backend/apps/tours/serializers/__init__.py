@@ -4,7 +4,10 @@ from apps.tours.serializers.agency import (
     AgencySerializer,
     AgencyUpdateSerializer,
 )
-from apps.tours.serializers.employee import AgencyEmployeeSerializer
+from apps.tours.serializers.employee import (
+    AgencyEmployeeRoleSerializer,
+    AgencyEmployeeSerializer,
+)
 from apps.tours.serializers.hotel import (
     AmenitySerializer,
     HotelImageSerializer,
@@ -31,6 +34,7 @@ from apps.tours.serializers.tour import (
 
 __all__ = [
     "AgencyCreateSerializer",
+    "AgencyEmployeeRoleSerializer",
     "AgencyEmployeeSerializer",
     "AgencyModerationSerializer",
     "AgencySerializer",

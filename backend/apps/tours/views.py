@@ -1,3 +1,5 @@
+import json
+
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, permissions, status, viewsets
@@ -5,8 +7,9 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
+from apps.tours.enums import EmployeeRole
 from apps.tours.filters import TourFilter
-from apps.tours.models import Agency, AgencyEmployee, Invitation, Tour
+from apps.tours.models import Agency, AgencyEmployee, Amenity, Invitation, Tour
 from apps.tours.permissions import IsAgencyAdmin, IsAgencyMember, IsApprovedAgency
 from apps.tours.selectors import (
     agency_list,
@@ -17,10 +20,13 @@ from apps.tours.selectors import (
 )
 from apps.tours.serializers import (
     AgencyCreateSerializer,
+    AgencyEmployeeRoleSerializer,
     AgencyEmployeeSerializer,
     AgencyModerationSerializer,
     AgencySerializer,
     AgencyUpdateSerializer,
+    AmenitySerializer,
+    HotelInputSerializer,
     InvitationCreateSerializer,
     InvitationSerializer,
     NotificationSerializer,
@@ -44,6 +50,18 @@ from apps.tours.services import (
 )
 
 
+def _parse_multipart_fields(data, json_keys):
+    """Parse JSON-string fields from multipart/form-data request.data."""
+    result = data.dict() if hasattr(data, "dict") else dict(data)
+    for key in json_keys:
+        if key in result and isinstance(result[key], str):
+            try:
+                result[key] = json.loads(result[key])
+            except (json.JSONDecodeError, ValueError):
+                pass
+    return result
+
+
 class AgencyViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
@@ -52,8 +70,13 @@ class AgencyViewSet(
 ):
     def get_queryset(self):
         if self.request.user.is_staff:
-            return Agency.objects.all()
-        return agency_list(user=self.request.user)
+            qs = Agency.objects.all()
+        else:
+            qs = agency_list(user=self.request.user)
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -116,27 +139,32 @@ class AgencyEmployeeViewSet(
         return employee_list(agency=agency)
 
     def destroy(self, request, *args, **kwargs):
-        employee = self.get_object()
-        # Prevent removing the last admin
-        agency = employee.agency
-        if (
-            employee.role == "admin"
-            and not agency.employees.filter(role="admin")
-            .exclude(pk=employee.pk)
-            .exists()
-        ):
-            from rest_framework.exceptions import ValidationError
+        from rest_framework.exceptions import ValidationError
 
-            raise ValidationError(
-                "Cannot remove the last admin of the agency."
-            )
+        employee = self.get_object()
+        if employee.role == EmployeeRole.OWNER:
+            raise ValidationError("Cannot remove the agency owner.")
         employee.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=["patch"], detail=True, url_path="role")
+    def update_role(self, request, agency_pk=None, pk=None):
+        from rest_framework.exceptions import ValidationError
+
+        employee = self.get_object()
+        if employee.role == EmployeeRole.OWNER:
+            raise ValidationError("Cannot change the owner's role.")
+        serializer = AgencyEmployeeRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        employee.role = serializer.validated_data["role"]
+        employee.save(update_fields=["role"])
+        return Response(AgencyEmployeeSerializer(employee).data)
 
 
 class InvitationViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin, IsApprovedAgency]
@@ -151,6 +179,15 @@ class InvitationViewSet(
         agency = get_object_or_404(Agency, pk=agency_pk)
         return invitation_list(agency=agency)
 
+    def destroy(self, request, *args, **kwargs):
+        from rest_framework.exceptions import ValidationError
+
+        invitation = self.get_object()
+        if invitation.status != "pending":
+            raise ValidationError("Only pending invitations can be deleted.")
+        invitation.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def create(self, request, *args, **kwargs):
         agency_pk = self.kwargs["agency_pk"]
         agency = get_object_or_404(Agency, pk=agency_pk)
@@ -161,37 +198,47 @@ class InvitationViewSet(
         serializer = InvitationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        invited_user = None
-        if serializer.validated_data.get("invited_user"):
-            from django.contrib.auth import get_user_model
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from rest_framework.exceptions import ValidationError as DRFValidationError
 
-            User = get_user_model()
-            invited_user = get_object_or_404(
-                User, pk=serializer.validated_data["invited_user"]
+        try:
+            invitation = invitation_create(
+                agency=agency,
+                created_by=created_by,
+                invited_email=serializer.validated_data.get("invited_email"),
+                invited_user_id=serializer.validated_data.get("invited_user"),
+                role=serializer.validated_data.get("role", "operator"),
+                expires_at=serializer.validated_data.get("expires_at"),
             )
-
-        invitation = invitation_create(
-            agency=agency,
-            created_by=created_by,
-            invited_email=serializer.validated_data.get("invited_email"),
-            invited_user=invited_user,
-            expires_at=serializer.validated_data.get("expires_at"),
-        )
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.messages) from exc
         return Response(
             InvitationSerializer(invitation).data,
             status=status.HTTP_201_CREATED,
         )
 
 
-class InvitationRespondViewSet(viewsets.GenericViewSet):
+class InvitationRespondViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
     """
-    Handles accept/reject for invitations identified by token.
+    Handles retrieve/accept/reject for invitations identified by token.
     Available to any authenticated user — validation happens in the service.
     """
 
+    serializer_class = InvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "token"
-    queryset = Invitation.objects.all()
+
+    def get_queryset(self):
+        # List action → only the current user's received invitations
+        if self.action == "list":
+            return Invitation.objects.select_related("agency").filter(
+                invited_user=self.request.user
+            )
+        return Invitation.objects.select_related("agency").all()
 
     @action(methods=["post"], detail=True)
     def accept(self, request, token=None):
@@ -281,24 +328,33 @@ class TourViewSet(
             AgencyEmployee, user=request.user, agency=agency
         )
 
-        serializer = TourCreateSerializer(data=request.data)
+        data = _parse_multipart_fields(
+            request.data, ["location", "hotels", "transfers"]
+        )
+        serializer = TourCreateSerializer(data=data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        vd = serializer.validated_data
+
+        hotels = list(vd.get("hotels") or [])
+        for idx, hotel in enumerate(hotels):
+            hotel = dict(hotel)
+            hotel["images"] = request.FILES.getlist(f"hotel_images_{idx}")
+            hotels[idx] = hotel
 
         tour = tour_create(
             agency=agency,
             created_by=created_by,
-            title=data["title"],
-            description=data["description"],
-            price=data["price"],
-            start_date=data["start_date"],
-            end_date=data["end_date"],
-            location_data=data["location"],
-            max_adults=data["max_adults"],
-            max_children=data["max_children"],
-            cover_image=data.get("cover_image"),
-            hotels=data.get("hotels"),
-            transfers=data.get("transfers"),
+            title=vd["title"],
+            description=vd["description"],
+            price=vd["price"],
+            start_date=vd["start_date"],
+            end_date=vd["end_date"],
+            location_data=vd["location"],
+            max_adults=vd["max_adults"],
+            max_children=vd["max_children"],
+            cover_image=vd.get("cover_image"),
+            hotels=hotels,
+            transfers=vd.get("transfers"),
         )
         return Response(
             TourSerializer(tour).data, status=status.HTTP_201_CREATED
@@ -307,9 +363,29 @@ class TourViewSet(
     @action(methods=["patch"], detail=True, url_path="update")
     def partial_update_tour(self, request, agency_pk=None, pk=None):
         tour = get_object_or_404(Tour, pk=pk, agency_id=agency_pk)
-        serializer = TourUpdateSerializer(data=request.data)
+
+        data = _parse_multipart_fields(request.data, ["hotels"])
+        hotels_raw = data.pop("hotels", None)
+
+        hotels = None
+        if hotels_raw is not None:
+            hotel_serializer = HotelInputSerializer(
+                data=hotels_raw, many=True
+            )
+            hotel_serializer.is_valid(raise_exception=True)
+            hotels = []
+            for idx, hotel in enumerate(hotel_serializer.validated_data):
+                hotel = dict(hotel)
+                hotel["images"] = request.FILES.getlist(
+                    f"hotel_images_{idx}"
+                )
+                hotels.append(hotel)
+
+        serializer = TourUpdateSerializer(data=data)
         serializer.is_valid(raise_exception=True)
-        tour = tour_update(tour=tour, **serializer.validated_data)
+        tour = tour_update(
+            tour=tour, hotels=hotels, **serializer.validated_data
+        )
         return Response(TourSerializer(tour).data)
 
     @action(methods=["post"], detail=True)
@@ -326,6 +402,12 @@ class TourViewSet(
         reason = serializer.validated_data.get("reason", "")
         tour = tour_reject(tour=tour, reason=reason)
         return Response(TourSerializer(tour).data)
+
+
+class AmenityViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = AmenitySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = Amenity.objects.all()
 
 
 class NotificationViewSet(

@@ -1,6 +1,16 @@
 from rest_framework import serializers
 
+from apps.tours.enums import EmployeeRole
 from apps.tours.models import AgencyEmployee
+
+
+class AgencyEmployeeRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(
+        choices=[
+            (EmployeeRole.ADMIN, "Admin"),
+            (EmployeeRole.OPERATOR, "Operator"),
+        ]
+    )
 
 
 class AgencyEmployeeSerializer(serializers.ModelSerializer):

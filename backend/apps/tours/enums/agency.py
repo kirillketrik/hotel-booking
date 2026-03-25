@@ -8,6 +8,7 @@ class AgencyStatus(models.TextChoices):
 
 
 class EmployeeRole(models.TextChoices):
+    OWNER = "owner", "Owner"
     ADMIN = "admin", "Admin"
     OPERATOR = "operator", "Operator"
 

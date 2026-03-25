@@ -40,5 +40,6 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "groups",
+            "is_staff",
         )
-        read_only_fields = ("id", "email", "groups")
+        read_only_fields = ("id", "email", "groups", "is_staff")

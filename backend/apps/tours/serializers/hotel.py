@@ -57,10 +57,14 @@ class HotelRoomInputSerializer(serializers.Serializer):
 
 
 class HotelInputSerializer(serializers.Serializer):
+    id = serializers.UUIDField(required=False)
     name = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True)
     stars = serializers.IntegerField(min_value=1, max_value=5)
     amenity_ids = serializers.ListField(
-        child=serializers.UUIDField(), required=False
+        child=serializers.UUIDField(), required=False, default=list
+    )
+    existing_image_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list
     )
     rooms = HotelRoomInputSerializer(many=True, required=False)

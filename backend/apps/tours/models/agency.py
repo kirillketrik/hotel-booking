@@ -1,8 +1,7 @@
 import uuid6
-from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-
+from django.conf import settings
 from apps.common.models import BaseModel, TimeStampedModel
 from apps.tours.enums.agency import (
     AgencyStatus,
@@ -21,12 +20,6 @@ class Agency(BaseModel, TimeStampedModel):
         null=True,
         blank=True,
         verbose_name=_("Logo"),
-    )
-    owner = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="owned_agency",
-        verbose_name=_("Owner"),
     )
     status = models.CharField(
         max_length=20,
@@ -111,6 +104,15 @@ class Invitation(BaseModel, TimeStampedModel):
         choices=InvitationStatus.choices,
         default=InvitationStatus.PENDING,
         verbose_name=_("Status"),
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=[
+            (EmployeeRole.ADMIN, EmployeeRole.ADMIN.label),
+            (EmployeeRole.OPERATOR, EmployeeRole.OPERATOR.label),
+        ],
+        default=EmployeeRole.OPERATOR,
+        verbose_name=_("Assigned Role"),
     )
     expires_at = models.DateTimeField(
         null=True,
