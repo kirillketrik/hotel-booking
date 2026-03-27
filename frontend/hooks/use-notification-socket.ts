@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuthStore, useNotificationStore } from '@/lib/store'
 
@@ -13,6 +14,7 @@ export function useNotificationSocket() {
   const attemptsRef = useRef(0)
   const { user } = useAuthStore()
   const { setUnreadCount, increment } = useNotificationStore()
+  const qc = useQueryClient()
 
   const connect = useCallback(() => {
     if (!user) return
@@ -33,6 +35,7 @@ export function useNotificationSocket() {
         } else if (data.type === 'notification') {
           increment()
           toast(data.title, { description: data.message })
+          qc.invalidateQueries({ queryKey: ['notifications'] })
         }
       } catch {
         // ignore parse errors
@@ -49,7 +52,7 @@ export function useNotificationSocket() {
     ws.onerror = () => {
       ws.close()
     }
-  }, [user, setUnreadCount, increment])
+  }, [user, setUnreadCount, increment, qc])
 
   const sendMessage = useCallback((data: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

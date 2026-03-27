@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
-from apps.tours.models import Agency
+from apps.tours.models import Agency, AgencyEmployee
 
 
 class AgencySerializer(serializers.ModelSerializer):
+    my_role = serializers.SerializerMethodField()
+
     class Meta:
         model = Agency
         fields = (
@@ -13,6 +15,7 @@ class AgencySerializer(serializers.ModelSerializer):
             "logo",
             "status",
             "rejection_reason",
+            "my_role",
             "created_at",
             "updated_at",
         )
@@ -23,6 +26,17 @@ class AgencySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def get_my_role(self, obj) -> str | None:
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        try:
+            return AgencyEmployee.objects.get(
+                agency=obj, user=request.user
+            ).role
+        except AgencyEmployee.DoesNotExist:
+            return None
 
 
 class AgencyCreateSerializer(serializers.Serializer):

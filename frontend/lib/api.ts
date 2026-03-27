@@ -117,6 +117,8 @@ export const apiEndpoints = {
       api.post(`/api/v1/agencies/${agencyId}/tours/${tourId}/approve/`),
     reject: (agencyId: string, tourId: string, reason?: string) =>
       api.post(`/api/v1/agencies/${agencyId}/tours/${tourId}/reject/`, { reason }),
+    delete: (agencyId: string, tourId: string) =>
+      api.delete(`/api/v1/agencies/${agencyId}/tours/${tourId}/`),
   },
 
   amenities: {

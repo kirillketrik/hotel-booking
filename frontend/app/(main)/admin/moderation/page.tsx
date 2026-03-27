@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -13,12 +13,21 @@ import {
   Calendar,
   DollarSign,
   ExternalLink,
+  Search,
 } from 'lucide-react'
 import { PageShell } from '@/components/page-shell'
 import { useAuthStore } from '@/lib/store'
 import { apiEndpoints } from '@/lib/api'
 import type { Agency, Tour, PaginatedResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Card,
   CardContent,
@@ -62,7 +71,7 @@ function StatusFilter({
   onChange: (v: StatusFilter) => void
 }) {
   return (
-    <div className="flex gap-2 mb-6">
+    <div className="flex gap-2">
       {STATUS_FILTERS.map((f) => (
         <Button
           key={f}
@@ -74,6 +83,55 @@ function StatusFilter({
           {f}
         </Button>
       ))}
+    </div>
+  )
+}
+
+function useDebounce(value: string, delay = 300) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
+function SearchOrdering({
+  search,
+  onSearch,
+  ordering,
+  onOrdering,
+  orderingOptions,
+}: {
+  search: string
+  onSearch: (v: string) => void
+  ordering: string
+  onOrdering: (v: string) => void
+  orderingOptions: { value: string; label: string }[]
+}) {
+  return (
+    <div className="flex gap-2 flex-1">
+      <div className="relative flex-1 max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search..."
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          className="pl-8 h-8 text-sm"
+        />
+      </div>
+      <Select value={ordering} onValueChange={onOrdering}>
+        <SelectTrigger className="h-8 w-44 text-sm">
+          <SelectValue placeholder="Sort by" />
+        </SelectTrigger>
+        <SelectContent>
+          {orderingOptions.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -126,16 +184,28 @@ function RejectDialog({
   )
 }
 
+const AGENCY_ORDERING_OPTIONS = [
+  { value: '-created_at', label: 'Newest first' },
+  { value: 'created_at', label: 'Oldest first' },
+  { value: 'name', label: 'Name A–Z' },
+  { value: '-name', label: 'Name Z–A' },
+  { value: 'status', label: 'Status' },
+]
+
 function AgenciesTab() {
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending')
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [ordering, setOrdering] = useState('-created_at')
+  const search = useDebounce(searchInput)
 
-  const params =
-    statusFilter === 'all' ? {} : { status: statusFilter }
+  const params: Record<string, unknown> = { ordering }
+  if (statusFilter !== 'all') params.status = statusFilter
+  if (search) params.search = search
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-agencies', statusFilter],
+    queryKey: ['admin-agencies', statusFilter, search, ordering],
     queryFn: (): Promise<Agency[]> =>
       apiEndpoints.admin.agencies.list(params).then((r) => {
         const d = r.data as Agency[] | PaginatedResponse<Agency>
@@ -167,7 +237,16 @@ function AgenciesTab() {
 
   return (
     <div>
-      <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+        <SearchOrdering
+          search={searchInput}
+          onSearch={setSearchInput}
+          ordering={ordering}
+          onOrdering={setOrdering}
+          orderingOptions={AGENCY_ORDERING_OPTIONS}
+        />
+      </div>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -261,16 +340,31 @@ function AgenciesTab() {
   )
 }
 
+const TOUR_ORDERING_OPTIONS = [
+  { value: '-created_at', label: 'Newest first' },
+  { value: 'created_at', label: 'Oldest first' },
+  { value: 'price', label: 'Price low–high' },
+  { value: '-price', label: 'Price high–low' },
+  { value: 'start_date', label: 'Start date asc' },
+  { value: '-start_date', label: 'Start date desc' },
+  { value: 'duration_days', label: 'Duration short–long' },
+  { value: '-duration_days', label: 'Duration long–short' },
+]
+
 function ToursTab() {
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending')
   const [rejectTarget, setRejectTarget] = useState<Tour | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [ordering, setOrdering] = useState('-created_at')
+  const search = useDebounce(searchInput)
 
-  const params =
-    statusFilter === 'all' ? {} : { status: statusFilter }
+  const params: Record<string, unknown> = { ordering }
+  if (statusFilter !== 'all') params.status = statusFilter
+  if (search) params.search = search
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-tours', statusFilter],
+    queryKey: ['admin-tours', statusFilter, search, ordering],
     queryFn: (): Promise<Tour[]> =>
       apiEndpoints.admin.tours.list(params).then((r) => {
         const d = r.data as Tour[] | PaginatedResponse<Tour>
@@ -303,7 +397,16 @@ function ToursTab() {
 
   return (
     <div>
-      <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+        <SearchOrdering
+          search={searchInput}
+          onSearch={setSearchInput}
+          ordering={ordering}
+          onOrdering={setOrdering}
+          orderingOptions={TOUR_ORDERING_OPTIONS}
+        />
+      </div>
 
       {isLoading ? (
         <div className="space-y-3">

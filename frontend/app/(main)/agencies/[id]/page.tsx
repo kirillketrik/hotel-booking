@@ -12,7 +12,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/status-badge'
-import { Plus, Users, BarChart3, CheckCircle2, Clock, XCircle, Trash2, Mail, UserPlus, Link2, Copy, ShieldCheck } from 'lucide-react'
+import { Plus, Users, BarChart3, CheckCircle2, Clock, XCircle, Trash2, Mail, UserPlus, Link2, Copy, ShieldCheck, Building2, MapPin, CalendarDays } from 'lucide-react'
+import { TourCard, TourCardSkeleton } from '@/components/tour-card'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store'
 import type { Agency, AgencyEmployee, Invitation, Tour } from '@/lib/types'
@@ -57,17 +59,20 @@ export default function AgencyDashboardPage() {
     queryFn: () => fetchAgencyTours(agencyId),
   })
 
+  const { user, isStaff } = useAuthStore()
+
   const { data: employees, isLoading: employeesLoading } = useQuery({
     queryKey: ['agency-employees', agencyId],
     queryFn: () => apiEndpoints.employees.list(agencyId).then((r) => r.data.results ?? r.data) as Promise<AgencyEmployee[]>,
+    enabled: !!user,
+    retry: false,
   })
 
   const { data: invitations, isLoading: invitationsLoading } = useQuery({
     queryKey: ['agency-invitations', agencyId],
     queryFn: () => apiEndpoints.invitations.list(agencyId).then((r) => r.data.results ?? r.data) as Promise<Invitation[]>,
+    enabled: !!user,
   })
-
-  const { user, isStaff } = useAuthStore()
   const qc = useQueryClient()
   const [adminRejectOpen, setAdminRejectOpen] = useState(false)
   const [adminRejectReason, setAdminRejectReason] = useState('')
@@ -221,7 +226,7 @@ export default function AgencyDashboardPage() {
     return list
   }, [employees, staffSearch, staffRoleFilter])
 
-  if (agencyLoading) {
+  if (agencyLoading || (!!user && employeesLoading)) {
     return (
       <PageShell>
         <div className="space-y-4">
@@ -244,6 +249,65 @@ export default function AgencyDashboardPage() {
 
   const isApproved = agency.status === 'approved'
   const banner = STATUS_BANNER[agency.status]
+  const isMember = myRole !== null
+  const canAccess = isMember || isStaff()
+
+  // ── Public profile for non-members ─────────────────────────────────────────
+  if (!canAccess) {
+    const publicTours = (tours ?? []).filter((t: Tour) => t.status === 'approved')
+    return (
+      <PageShell>
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          {/* Agency header */}
+          <div className="flex items-start gap-5 mb-8">
+            {agency.logo ? (
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0">
+                <Image src={agency.logo} alt={agency.name} width={80} height={80} className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-2xl border bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-3xl font-bold text-primary uppercase">{agency.name.charAt(0)}</span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-3xl font-bold tracking-tight mb-1">{agency.name}</h1>
+              {agency.description && (
+                <p className="text-muted-foreground leading-relaxed">{agency.description}</p>
+              )}
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
+                <CalendarDays className="w-3.5 h-3.5" />
+                Member since {new Date(agency.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+          </div>
+
+          {/* Tours */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">
+              Tours
+              {publicTours.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">{publicTours.length} available</span>
+              )}
+            </h2>
+            {toursLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {[1, 2, 3].map((i) => <TourCardSkeleton key={i} />)}
+              </div>
+            ) : publicTours.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>No tours available from this agency yet.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {publicTours.map((tour: Tour) => <TourCard key={tour.id} tour={tour} />)}
+              </div>
+            )}
+          </div>
+        </div>
+      </PageShell>
+    )
+  }
 
   return (
     <PageShell>

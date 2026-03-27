@@ -46,6 +46,25 @@ class IsAgencyMember(BasePermission):
         ).exists()
 
 
+class IsAgencyAdminOrStaff(BasePermission):
+    """
+    Allows access to staff users OR agency employees with owner/admin role.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_staff:
+            return True
+        agency_pk = view.kwargs.get("agency_pk")
+        if not agency_pk:
+            return False
+        employee = get_employee(request.user, agency_pk)
+        return employee is not None and employee.role in (
+            EmployeeRole.OWNER, EmployeeRole.ADMIN
+        )
+
+
 class IsApprovedAgency(BasePermission):
     """
     Allows access only when the agency identified by `agency_pk` is approved.

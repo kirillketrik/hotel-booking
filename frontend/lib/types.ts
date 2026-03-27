@@ -23,6 +23,7 @@ export interface Agency {
   logo: string | null
   status: 'pending' | 'approved' | 'rejected'
   rejection_reason: string
+  my_role: 'owner' | 'admin' | 'operator' | null
   created_at: string
   updated_at: string
 }

@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from apps.tours.enums import EmployeeRole
 from apps.tours.filters import TourFilter
 from apps.tours.models import Agency, AgencyEmployee, Amenity, Invitation, Tour
-from apps.tours.permissions import IsAgencyAdmin, IsAgencyMember, IsApprovedAgency
+from apps.tours.permissions import IsAgencyAdmin, IsAgencyAdminOrStaff, IsAgencyMember, IsApprovedAgency
 from apps.tours.selectors import (
     agency_list,
     employee_list,
@@ -68,11 +68,22 @@ class AgencyViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "created_at", "status"]
+    ordering = ["-created_at"]
+
     def get_queryset(self):
-        if self.request.user.is_staff:
+        user = self.request.user
+        if self.action == "retrieve":
+            # Public: anyone can view an approved agency; staff see all
+            if user.is_authenticated and user.is_staff:
+                return Agency.objects.all()
+            return Agency.objects.filter(status="approved")
+        if user.is_staff:
             qs = Agency.objects.all()
         else:
-            qs = agency_list(user=self.request.user)
+            qs = agency_list(user=user)
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)
@@ -90,6 +101,8 @@ class AgencyViewSet(
     def get_permissions(self):
         if self.action in ("approve", "reject"):
             return [permissions.IsAdminUser()]
+        if self.action == "retrieve":
+            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
@@ -131,7 +144,11 @@ class AgencyEmployeeViewSet(
     viewsets.GenericViewSet,
 ):
     serializer_class = AgencyEmployeeSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin, IsApprovedAgency]
+
+    def get_permissions(self):
+        if self.action in ("destroy", "update_role"):
+            return [permissions.IsAuthenticated(), IsAgencyAdmin(), IsApprovedAgency()]
+        return [permissions.IsAuthenticated(), IsAgencyMember()]
 
     def get_queryset(self):
         agency_pk = self.kwargs["agency_pk"]
@@ -282,6 +299,7 @@ class TourViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -319,6 +337,8 @@ class TourViewSet(
             return [permissions.IsAdminUser()]
         if self.action in ("create", "partial_update_tour"):
             return [permissions.IsAuthenticated(), IsAgencyMember(), IsApprovedAgency()]
+        if self.action == "destroy":
+            return [permissions.IsAuthenticated(), IsAgencyAdminOrStaff()]
         return [permissions.AllowAny()]
 
     def create(self, request, *args, **kwargs):
