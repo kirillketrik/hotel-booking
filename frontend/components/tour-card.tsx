@@ -6,6 +6,7 @@ import { MapPin, Building2, CalendarDays, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Tour } from '@/lib/types'
 import { StatusBadge } from './status-badge'
+import { WishlistButton } from './wishlist-button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -49,10 +50,16 @@ export function TourCard({ tour, showStatus = false, className }: TourCardProps)
         )}
 
         {/* Duration badge — top-right */}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
           <span className="text-xs font-semibold text-primary-foreground bg-primary/80 backdrop-blur-sm px-2 py-1 rounded-lg">
             {tour.duration_days} {tour.duration_days === 1 ? 'day' : 'days'}
           </span>
+          <WishlistButton
+            tourId={tour.id}
+            isWishlisted={tour.is_wishlisted}
+            invalidateKeys={[['tours', 'public'], ['wishlist']]}
+            size="sm"
+          />
         </div>
 
         {/* Price badge — bottom-left */}

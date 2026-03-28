@@ -150,6 +150,11 @@ export const apiEndpoints = {
     markAllRead: () => api.post('/api/v1/notifications/read-all/'),
   },
 
+  wishlist: {
+    list: (params?: Record<string, unknown>) => api.get('/api/v1/wishlist/', { params }),
+    toggle: (tourId: string) => api.post(`/api/v1/wishlist/toggle/${tourId}/`),
+  },
+
   staff: {
     users: {
       list: (params?: Record<string, unknown>) =>

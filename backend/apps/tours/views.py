@@ -507,3 +507,29 @@ class NotificationViewSet(
     def mark_all_read(self, request):
         notification_list(user=request.user).update(is_read=True)
         return Response(status=status.HTTP_200_OK)
+
+
+class WishlistViewSet(
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    serializer_class = TourSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        from apps.tours.models import Wishlist
+        tour_ids = Wishlist.objects.filter(
+            user=self.request.user
+        ).values_list("tour_id", flat=True)
+        return Tour.objects.filter(pk__in=tour_ids, status="approved")
+
+    @action(methods=["post"], detail=False, url_path="toggle/(?P<tour_pk>[^/.]+)")
+    def toggle(self, request, tour_pk=None):
+        from apps.tours.models import Wishlist
+        tour = get_object_or_404(Tour, pk=tour_pk)
+        obj, created = Wishlist.objects.get_or_create(
+            user=request.user, tour=tour
+        )
+        if not created:
+            obj.delete()
+        return Response({"wishlisted": created}, status=status.HTTP_200_OK)

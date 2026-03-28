@@ -9,6 +9,7 @@ from apps.tours.views import (
     InvitationViewSet,
     NotificationViewSet,
     TourViewSet,
+    WishlistViewSet,
 )
 
 # /api/v1/agencies/
@@ -43,6 +44,10 @@ amenity_router.register(r"", AmenityViewSet, basename="amenities")
 public_tour_router = DefaultRouter()
 public_tour_router.register(r"", TourViewSet, basename="public-tours")
 
+# /api/v1/wishlist/
+wishlist_router = DefaultRouter()
+wishlist_router.register(r"", WishlistViewSet, basename="wishlist")
+
 urlpatterns = [
     path("api/v1/agencies/<uuid:agency_pk>/employees/", include(employee_router.urls)),
     path("api/v1/agencies/<uuid:agency_pk>/invitations/", include(agency_invitation_router.urls)),
@@ -51,6 +56,7 @@ urlpatterns = [
     path("api/v1/amenities/", include(amenity_router.urls)),
     path("api/v1/invitations/", include(invitation_respond_router.urls)),
     path("api/v1/notifications/", include(notification_router.urls)),
+    path("api/v1/wishlist/", include(wishlist_router.urls)),
     # Must be last — catches /api/v1/tours/<pk>/
     path("api/v1/tours/", include(public_tour_router.urls)),
 ]

@@ -104,6 +104,7 @@ export interface Tour {
   max_children: number
   status: 'pending' | 'approved' | 'rejected'
   rejection_reason: string
+  is_wishlisted: boolean
   images: { id: string; image: string; order: number }[]
   hotels: Hotel[]
   transfers: TourTransfer[]

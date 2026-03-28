@@ -25,6 +25,7 @@ class TourSerializer(serializers.ModelSerializer):
     agency_name = serializers.CharField(
         source="agency.name", read_only=True
     )
+    is_wishlisted = serializers.SerializerMethodField()
 
     class Meta:
         model = Tour
@@ -47,6 +48,7 @@ class TourSerializer(serializers.ModelSerializer):
             "images",
             "hotels",
             "transfers",
+            "is_wishlisted",
             "created_at",
             "updated_at",
         )
@@ -58,6 +60,13 @@ class TourSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def get_is_wishlisted(self, obj) -> bool:
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        from apps.tours.models import Wishlist
+        return Wishlist.objects.filter(user=request.user, tour=obj).exists()
 
 
 class TourTransferInputSerializer(serializers.Serializer):

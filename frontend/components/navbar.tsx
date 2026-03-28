@@ -17,6 +17,7 @@ import {
   Users,
   ClipboardList,
   Compass,
+  Heart,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -85,6 +86,10 @@ export function Navbar() {
                   <Building2 className="w-3.5 h-3.5" />
                   My Agencies
                 </Link>
+                <Link href="/wishlist" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5" />
+                  Wishlist
+                </Link>
               </>
             )}
             {isStaff() && (
@@ -150,6 +155,12 @@ export function Navbar() {
                       <Link href="/agencies" className="flex items-center gap-2">
                         <Building2 className="w-4 h-4" />
                         My Agencies
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/wishlist" className="flex items-center gap-2">
+                        <Heart className="w-4 h-4" />
+                        Wishlist
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -243,6 +254,10 @@ export function Navbar() {
               <Link href="/agencies" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                 <Building2 className="w-4 h-4 text-muted-foreground" />
                 My Agencies
+              </Link>
+              <Link href="/wishlist" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                <Heart className="w-4 h-4 text-muted-foreground" />
+                Wishlist
               </Link>
               <Link href="/invitations" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                 <Mail className="w-4 h-4 text-muted-foreground" />

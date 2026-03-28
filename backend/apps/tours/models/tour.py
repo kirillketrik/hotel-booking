@@ -114,3 +114,27 @@ class TourTransfer(BaseModel):
             f"{self.get_transfer_type_display()} transfer "
             f"({included}) for {self.tour}"
         )
+
+
+class Wishlist(BaseModel, TimeStampedModel):
+    user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="wishlist_items",
+        verbose_name=_("User"),
+    )
+    tour = models.ForeignKey(
+        Tour,
+        on_delete=models.CASCADE,
+        related_name="wishlisted_by",
+        verbose_name=_("Tour"),
+    )
+
+    class Meta:
+        verbose_name = _("Wishlist Item")
+        verbose_name_plural = _("Wishlist Items")
+        unique_together = [("user", "tour")]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} → {self.tour}"

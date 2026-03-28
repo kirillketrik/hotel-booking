@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api, apiEndpoints } from '@/lib/api';
 import { PageShell } from '@/components/page-shell';
 import { StatusBadge } from '@/components/status-badge';
@@ -26,6 +26,7 @@ import {
   Building2,
   CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   Clock,
   MapPin,
@@ -39,6 +40,7 @@ import {
   XCircle,
   Images,
 } from 'lucide-react';
+import { WishlistButton } from '@/components/wishlist-button';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/store';
 import type { Tour, Hotel, TourTransfer } from '@/lib/types';
@@ -319,6 +321,17 @@ export default function TourDetailPage() {
     ...tour.images,
   ];
 
+  useEffect(() => {
+    if (!galleryOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') setGalleryIndex(i => (i - 1 + allImages.length) % allImages.length)
+      if (e.key === 'ArrowRight') setGalleryIndex(i => (i + 1) % allImages.length)
+      if (e.key === 'Escape') setGalleryOpen(false)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [galleryOpen, allImages.length])
+
   const startDate = new Date(tour.start_date);
   const endDate = new Date(tour.end_date);
   const includedTransfers = tour.transfers.filter((t) => t.is_included);
@@ -404,7 +417,7 @@ export default function TourDetailPage() {
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-4 grid-rows-2 gap-1.5 h-[420px]">
+              <div className="relative grid grid-cols-4 grid-rows-2 gap-1.5 h-[420px]">
                 {/* Main large image */}
                 <div
                   className="col-span-2 row-span-2 overflow-hidden cursor-pointer"
@@ -438,6 +451,14 @@ export default function TourDetailPage() {
                     )}
                   </div>
                 ))}
+                {/* View all photos button */}
+                <button
+                  onClick={() => { setGalleryIndex(0); setGalleryOpen(true); }}
+                  className="absolute bottom-3 right-3 bg-white/90 hover:bg-white text-sm font-medium px-3 py-1.5 rounded-lg shadow transition-colors flex items-center gap-1.5"
+                >
+                  <Images className="w-4 h-4" />
+                  View all photos
+                </button>
               </div>
             )}
           </div>
@@ -451,7 +472,15 @@ export default function TourDetailPage() {
 
             {/* Title + agency */}
             <div>
-              <h1 className="text-3xl font-bold tracking-tight mb-2">{tour.title}</h1>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h1 className="text-3xl font-bold tracking-tight">{tour.title}</h1>
+                <WishlistButton
+                  tourId={tour.id}
+                  isWishlisted={tour.is_wishlisted}
+                  invalidateKeys={[['tour', tourId], ['wishlist']]}
+                  className="shrink-0 mt-1"
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4" />
@@ -687,6 +716,28 @@ export default function TourDetailPage() {
               alt=""
               className="w-full max-h-[80vh] object-contain rounded-lg"
             />
+            {/* Counter */}
+            <div className="absolute top-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
+              {galleryIndex + 1} / {allImages.length}
+            </div>
+            {/* Prev button */}
+            {allImages.length > 1 && (
+              <button
+                onClick={() => setGalleryIndex(i => (i - 1 + allImages.length) % allImages.length)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
+            )}
+            {/* Next button */}
+            {allImages.length > 1 && (
+              <button
+                onClick={() => setGalleryIndex(i => (i + 1) % allImages.length)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
+            )}
             {allImages.length > 1 && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
                 {allImages.map((_, i) => (

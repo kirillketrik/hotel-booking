@@ -2,7 +2,7 @@ from apps.tours.models.agency import Agency, AgencyEmployee, Invitation
 from apps.tours.models.hotel import Amenity, Hotel, HotelImage, HotelRoom
 from apps.tours.models.location import Location
 from apps.tours.models.notification import Notification
-from apps.tours.models.tour import Tour, TourImage, TourTransfer
+from apps.tours.models.tour import Tour, TourImage, TourTransfer, Wishlist
 
 __all__ = [
     "Agency",
@@ -17,4 +17,5 @@ __all__ = [
     "Tour",
     "TourImage",
     "TourTransfer",
+    "Wishlist",
 ]
