@@ -16,6 +16,7 @@ import {
   Mail,
   Users,
   ClipboardList,
+  Compass,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -74,21 +75,15 @@ export function Navbar() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            <Link href="/" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors">
+            <Link href="/" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5" />
               Browse Tours
             </Link>
             {user && (
               <>
-                <Link href="/agencies" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors">
+                <Link href="/agencies" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5" />
                   My Agencies
-                </Link>
-                <Link href="/invitations" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1">
-                  Invitations
-                  {pendingInvitations > 0 && (
-                    <span className="bg-primary text-primary-foreground rounded-full text-xs px-1.5 py-0.5 leading-none">
-                      {pendingInvitations}
-                    </span>
-                  )}
                 </Link>
               </>
             )}
@@ -123,6 +118,16 @@ export function Navbar() {
           <div className="flex items-center gap-2">
             {user ? (
               <>
+                {/* Invitations icon */}
+                <Link href="/invitations" className="relative p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Mail className="w-4 h-4" />
+                  {pendingInvitations > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1 leading-none">
+                      {pendingInvitations}
+                    </span>
+                  )}
+                </Link>
+
                 {/* Notification Bell */}
                 <NotificationDropdown />
 
@@ -229,15 +234,18 @@ export function Navbar() {
       {/* Mobile nav */}
       {mobileOpen && (
         <div className="md:hidden border-t border-border bg-card px-4 py-3 flex flex-col gap-1">
-          <Link href="/" className="py-2 text-sm text-foreground" onClick={() => setMobileOpen(false)}>
+          <Link href="/" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+            <Compass className="w-4 h-4 text-muted-foreground" />
             Browse Tours
           </Link>
           {user ? (
             <>
-              <Link href="/agencies" className="py-2 text-sm text-foreground" onClick={() => setMobileOpen(false)}>
+              <Link href="/agencies" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                <Building2 className="w-4 h-4 text-muted-foreground" />
                 My Agencies
               </Link>
               <Link href="/invitations" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                <Mail className="w-4 h-4 text-muted-foreground" />
                 Invitations
                 {pendingInvitations > 0 && (
                   <span className="bg-primary text-primary-foreground rounded-full text-xs px-1.5 py-0.5 leading-none">
@@ -245,25 +253,32 @@ export function Navbar() {
                   </span>
                 )}
               </Link>
-              <Link href="/notifications" className="py-2 text-sm text-foreground" onClick={() => setMobileOpen(false)}>
-                Notifications {unreadCount > 0 && `(${unreadCount})`}
+              <Link href="/notifications" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                <Bell className="w-4 h-4 text-muted-foreground" />
+                Notifications
+                {unreadCount > 0 && (
+                  <span className="bg-destructive text-destructive-foreground rounded-full text-xs px-1.5 py-0.5 leading-none">
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
               {isStaff() && (
                 <>
                   <Link href="/admin/moderation" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
-                    <ClipboardList className="w-4 h-4" />
+                    <ClipboardList className="w-4 h-4 text-muted-foreground" />
                     Moderation
                   </Link>
                   <Link href="/admin/users" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
-                    <Users className="w-4 h-4" />
+                    <Users className="w-4 h-4 text-muted-foreground" />
                     Users
                   </Link>
                 </>
               )}
               <button
-                className="py-2 text-sm text-destructive text-left"
+                className="py-2 text-sm text-destructive text-left flex items-center gap-2"
                 onClick={() => { setMobileOpen(false); logoutMutation.mutate() }}
               >
+                <LogOut className="w-4 h-4" />
                 Sign out
               </button>
             </>
