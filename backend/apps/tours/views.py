@@ -454,7 +454,7 @@ class TourViewSet(
             agency_id=str(agency.pk),
             employee_id=str(created_by.pk),
             csv_text=csv_text,
-            requester_id=request.user.pk,
+            requester_id=str(request.user.pk),
         )
         return Response({"task_id": task.id}, status=status.HTTP_202_ACCEPTED)
 

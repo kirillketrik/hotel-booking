@@ -32,7 +32,7 @@ def tour_bulk_import_task(
     agency_id: str,
     employee_id: str,
     csv_text: str,
-    requester_id: int,
+    requester_id: str,
 ) -> dict:
     """
     Run tour bulk import from CSV text and notify the requester when done.
