@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/status-badge'
-import { Plus, Users, BarChart3, CheckCircle2, Clock, XCircle, Trash2, Mail, UserPlus, Link2, Copy, ShieldCheck, Building2, MapPin, CalendarDays } from 'lucide-react'
+import { Plus, Users, BarChart3, CheckCircle2, Clock, XCircle, Trash2, Mail, UserPlus, Link2, Copy, ShieldCheck, Building2, MapPin, CalendarDays, Upload, Download, FileText, AlertCircle } from 'lucide-react'
 import { TourCard, TourCardSkeleton } from '@/components/tour-card'
 import Image from 'next/image'
 import { toast } from 'sonner'
@@ -83,12 +83,68 @@ export default function AgencyDashboardPage() {
   const [inviteUserId, setInviteUserId] = useState('')
   const [inviteRole, setInviteRole] = useState<'admin' | 'operator'>('operator')
   const [generatedLink, setGeneratedLink] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importTaskId, setImportTaskId] = useState<string | null>(null)
+  const [importState, setImportState] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'failed'>('idle')
+  const [importResult, setImportResult] = useState<{ created: number; errors: { row: number; title: string; errors: string[] }[] } | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   const myRole = useMemo(
     () => employees?.find((e) => e.user === user?.id)?.role ?? null,
     [employees, user?.id]
   )
   const canManageStaff = myRole === 'owner' || myRole === 'admin'
+
+  const pollImportStatus = React.useCallback(async (taskId: string) => {
+    const poll = async () => {
+      try {
+        const res = await apiEndpoints.tours.importStatus(agencyId, taskId)
+        const { state, result } = res.data
+        if (state === 'success') {
+          setImportState('done')
+          setImportResult(result)
+          setImportTaskId(null)
+          qc.invalidateQueries({ queryKey: ['agency-tours', agencyId] })
+          if (result.errors.length === 0) {
+            toast.success(`${result.created} tour${result.created !== 1 ? 's' : ''} imported`)
+          } else {
+            toast.warning(`${result.created} imported, ${result.errors.length} failed`)
+          }
+        } else if (state === 'failure') {
+          setImportState('failed')
+          setImportTaskId(null)
+          toast.error(res.data.error ?? 'Import failed')
+        } else {
+          setTimeout(poll, 2000)
+        }
+      } catch {
+        setImportState('failed')
+        setImportTaskId(null)
+        toast.error('Failed to check import status')
+      }
+    }
+    await poll()
+  }, [agencyId, qc])
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => apiEndpoints.tours.importCsv(agencyId, file).then((r) => r.data),
+    onMutate: () => {
+      setImportState('uploading')
+      setImportResult(null)
+    },
+    onSuccess: ({ task_id }: { task_id: string }) => {
+      setImportTaskId(task_id)
+      setImportState('processing')
+      setImportFile(null)
+      pollImportStatus(task_id)
+    },
+    onError: (err: unknown) => {
+      setImportState('failed')
+      const msg = (err as { response?: { data?: { detail?: string; file?: string[] } } })?.response?.data
+      toast.error(msg?.detail ?? msg?.file?.[0] ?? 'Upload failed')
+    },
+  })
 
   const inviteMutation = useMutation({
     mutationFn: (data: { invited_email?: string; invited_user?: string; role: string }) =>
@@ -350,6 +406,12 @@ export default function AgencyDashboardPage() {
                   Reject
                 </Button>
               )}
+              {isApproved && isMember && (
+                <Button size="sm" variant="outline" onClick={() => { setImportOpen(true); setImportState('idle'); setImportResult(null); setImportFile(null) }}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import CSV
+                </Button>
+              )}
               {isApproved && (
                 <Link href={`/agencies/${agencyId}/tours/new`}>
                   <Button size="sm">
@@ -388,6 +450,138 @@ export default function AgencyDashboardPage() {
               >
                 Confirm Reject
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* CSV Import Dialog */}
+        <Dialog open={importOpen} onOpenChange={(open) => { if (!importMutation.isPending && importState !== 'processing') setImportOpen(open) }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Import Tours from CSV
+              </DialogTitle>
+              <DialogDescription>
+                Upload a CSV file to create multiple tours at once. Each row becomes one tour (status: pending review).
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Template download */}
+            <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>Need the template? Download the sample CSV.</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const headers = 'title,description,price,start_date,end_date,country,city,latitude,longitude,max_adults,max_children'
+                  const example = '"Paris Highlights","A 5-day tour of Paris.",980,2026-05-15,2026-05-19,France,Paris,48.8566,2.3522,10,3'
+                  const blob = new Blob([headers + '\n' + example], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = 'tours_template.csv'; a.click()
+                  URL.revokeObjectURL(url)
+                }}
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                Template
+              </Button>
+            </div>
+
+            {/* Drop zone — only when idle */}
+            {(importState === 'idle' || importState === 'failed') && (
+              <div
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setDragOver(false)
+                  const f = e.dataTransfer.files[0]
+                  if (f?.name.endsWith('.csv')) setImportFile(f)
+                  else toast.error('Please drop a .csv file')
+                }}
+                onClick={() => document.getElementById('csv-input')?.click()}
+              >
+                <input
+                  id="csv-input"
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setImportFile(f) }}
+                />
+                <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                {importFile ? (
+                  <p className="text-sm font-medium">{importFile.name}</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">Drop CSV here or click to browse</p>
+                    <p className="text-xs text-muted-foreground mt-1">Only .csv files accepted</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Processing state */}
+            {importState === 'processing' && (
+              <div className="flex flex-col items-center gap-3 py-6">
+                <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <p className="text-sm font-medium">Processing import…</p>
+                <p className="text-xs text-muted-foreground">You'll get a notification when it's done</p>
+              </div>
+            )}
+
+            {/* Results */}
+            {importState === 'done' && importResult && (
+              <div className="space-y-3">
+                <div className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium ${importResult.errors.length === 0 ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {importResult.created} tour{importResult.created !== 1 ? 's' : ''} created
+                  {importResult.errors.length > 0 && ` · ${importResult.errors.length} row${importResult.errors.length !== 1 ? 's' : ''} failed`}
+                </div>
+                {importResult.errors.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border p-3">
+                    {importResult.errors.map((e) => (
+                      <div key={e.row} className="text-xs">
+                        <span className="font-medium text-destructive">Row {e.row}{e.title ? ` — ${e.title}` : ''}:</span>
+                        <ul className="mt-0.5 pl-3 text-muted-foreground list-disc">
+                          {e.errors.map((msg, i) => <li key={i}>{msg}</li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {importState === 'failed' && !importResult && (
+              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Upload failed. Please check the file and try again.
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importState === 'processing'}>
+                {importState === 'done' || importState === 'failed' ? 'Close' : 'Cancel'}
+              </Button>
+              {(importState === 'idle' || importState === 'failed') && (
+                <Button
+                  disabled={!importFile || importMutation.isPending}
+                  onClick={() => importFile && importMutation.mutate(importFile)}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {importMutation.isPending ? 'Uploading…' : 'Import'}
+                </Button>
+              )}
+              {importState === 'done' && (
+                <Button onClick={() => { setImportState('idle'); setImportResult(null); setImportFile(null) }}>
+                  Import Another
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

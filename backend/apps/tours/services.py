@@ -369,6 +369,103 @@ def tour_update(
     return tour
 
 
+def tour_bulk_import(
+    *, agency: Agency, created_by: AgencyEmployee, file
+) -> dict:
+    """
+    Parse a CSV file and create a tour per valid row.
+
+    Returns:
+        {
+            "created": <int>,
+            "errors": [{"row": <int>, "title": <str>, "errors": <list>}],
+        }
+    """
+    import csv
+    import io
+
+    try:
+        text = file.read().decode("utf-8-sig")  # handle BOM
+    except UnicodeDecodeError:
+        raise ValidationError("File must be UTF-8 encoded.")
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    required_headers = {
+        "title",
+        "description",
+        "price",
+        "start_date",
+        "end_date",
+        "country",
+        "city",
+        "max_adults",
+        "max_children",
+    }
+    if reader.fieldnames is None:
+        raise ValidationError("CSV file is empty.")
+    missing = required_headers - {h.strip() for h in reader.fieldnames}
+    if missing:
+        raise ValidationError(
+            f"Missing required columns: {', '.join(sorted(missing))}"
+        )
+
+    from apps.tours.serializers import TourCSVRowSerializer
+
+    created = 0
+    errors = []
+
+    for row_num, raw_row in enumerate(reader, start=2):
+        row = {
+            k.strip(): (v.strip() if v else v)
+            for k, v in raw_row.items()
+        }
+        for field in ("latitude", "longitude"):
+            if not row.get(field):
+                row[field] = None
+
+        serializer = TourCSVRowSerializer(data=row)
+        if not serializer.is_valid():
+            errors.append({
+                "row": row_num,
+                "title": row.get("title", ""),
+                "errors": [
+                    f"{field}: {', '.join(msgs)}"
+                    for field, msgs in serializer.errors.items()
+                ],
+            })
+            continue
+
+        vd = serializer.validated_data
+        try:
+            tour_create(
+                agency=agency,
+                created_by=created_by,
+                title=vd["title"],
+                description=vd["description"],
+                price=vd["price"],
+                start_date=vd["start_date"],
+                end_date=vd["end_date"],
+                location_data={
+                    "country": vd["country"],
+                    "city": vd["city"],
+                    "latitude": vd.get("latitude"),
+                    "longitude": vd.get("longitude"),
+                },
+                max_adults=vd["max_adults"],
+                max_children=vd["max_children"],
+            )
+            created += 1
+        except Exception as exc:
+            errors.append({
+                "row": row_num,
+                "title": vd["title"],
+                "errors": [str(exc)],
+            })
+
+    return {"created": created, "errors": errors}
+
+
 def tour_approve(*, tour: Tour) -> Tour:
     tour.status = TourStatus.APPROVED
     tour.rejection_reason = ""

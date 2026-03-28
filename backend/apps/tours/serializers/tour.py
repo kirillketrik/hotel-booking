@@ -114,3 +114,26 @@ class TourUpdateSerializer(serializers.Serializer):
 
 class TourModerationSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True)
+
+
+class TourCSVRowSerializer(serializers.Serializer):
+    """Validates a single row from a bulk-import CSV."""
+
+    title = serializers.CharField(max_length=255)
+    description = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    country = serializers.CharField(max_length=100)
+    city = serializers.CharField(max_length=100)
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
+    max_adults = serializers.IntegerField(min_value=0)
+    max_children = serializers.IntegerField(min_value=0)
+
+    def validate(self, data):
+        if data["end_date"] <= data["start_date"]:
+            raise serializers.ValidationError(
+                "end_date must be after start_date."
+            )
+        return data

@@ -23,6 +23,7 @@ from apps.tours.serializers.invitation import (
 from apps.tours.serializers.location import LocationSerializer
 from apps.tours.serializers.notification import NotificationSerializer
 from apps.tours.serializers.tour import (
+    TourCSVRowSerializer,
     TourCreateSerializer,
     TourImageSerializer,
     TourModerationSerializer,
@@ -49,6 +50,7 @@ __all__ = [
     "InvitationSerializer",
     "LocationSerializer",
     "NotificationSerializer",
+    "TourCSVRowSerializer",
     "TourCreateSerializer",
     "TourImageSerializer",
     "TourModerationSerializer",

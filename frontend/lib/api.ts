@@ -119,6 +119,13 @@ export const apiEndpoints = {
       api.post(`/api/v1/agencies/${agencyId}/tours/${tourId}/reject/`, { reason }),
     delete: (agencyId: string, tourId: string) =>
       api.delete(`/api/v1/agencies/${agencyId}/tours/${tourId}/`),
+    importCsv: (agencyId: string, file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return api.post(`/api/v1/agencies/${agencyId}/tours/import/`, form)
+    },
+    importStatus: (agencyId: string, taskId: string) =>
+      api.get(`/api/v1/agencies/${agencyId}/tours/import/${taskId}/status/`),
   },
 
   amenities: {

@@ -423,6 +423,59 @@ class TourViewSet(
         tour = tour_reject(tour=tour, reason=reason)
         return Response(TourSerializer(tour).data)
 
+    @action(
+        methods=["post"],
+        detail=False,
+        url_path="import",
+        permission_classes=[permissions.IsAuthenticated, IsAgencyMember, IsApprovedAgency],
+    )
+    def import_csv(self, request, agency_pk=None):
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        from apps.tours.tasks import tour_bulk_import_task
+
+        agency = get_object_or_404(Agency, pk=agency_pk)
+        created_by = get_object_or_404(
+            AgencyEmployee, user=request.user, agency=agency
+        )
+
+        csv_file = request.FILES.get("file")
+        if not csv_file:
+            raise DRFValidationError({"file": "No file provided."})
+        if not csv_file.name.endswith(".csv"):
+            raise DRFValidationError({"file": "File must have a .csv extension."})
+
+        try:
+            csv_text = csv_file.read().decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise DRFValidationError({"file": "File must be UTF-8 encoded."})
+
+        task = tour_bulk_import_task.delay(
+            agency_id=str(agency.pk),
+            employee_id=str(created_by.pk),
+            csv_text=csv_text,
+            requester_id=request.user.pk,
+        )
+        return Response({"task_id": task.id}, status=status.HTTP_202_ACCEPTED)
+
+    @action(
+        methods=["get"],
+        detail=False,
+        url_path="import/(?P<task_id>[^/.]+)/status",
+        permission_classes=[permissions.IsAuthenticated, IsAgencyMember],
+    )
+    def import_status(self, request, agency_pk=None, task_id=None):
+        from celery.result import AsyncResult
+
+        result = AsyncResult(task_id)
+        if result.state == "PENDING":
+            return Response({"state": "pending"})
+        if result.state == "FAILURE":
+            return Response({"state": "failure", "error": str(result.result)})
+        if result.state == "SUCCESS":
+            return Response({"state": "success", "result": result.result})
+        return Response({"state": result.state.lower()})
+
 
 class AmenityViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = AmenitySerializer
