@@ -19,14 +19,21 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const { setUser, setLoading } = useAuthStore()
 
   useEffect(() => {
-    // Fetch CSRF cookie on app load
-    apiEndpoints.csrf().catch(() => {})
+    const init = async () => {
+      // CSRF must be set before any POST (including the refresh call the
+      // interceptor may make when /me returns 401).
+      try { await apiEndpoints.csrf() } catch {}
 
-    // Fetch current user
-    apiEndpoints
-      .me()
-      .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
+      // The response interceptor in api.ts handles 401 → POST /refresh → retry.
+      try {
+        const res = await apiEndpoints.me()
+        setUser(res.data)
+      } catch {
+        setUser(null)
+      }
+    }
+
+    init()
 
     // Listen for auth:logout event (triggered by 401 refresh failure)
     const handleLogout = () => setUser(null)

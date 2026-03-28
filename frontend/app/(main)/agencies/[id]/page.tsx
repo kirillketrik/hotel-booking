@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store'
 import type { Agency, AgencyEmployee, Invitation, Tour } from '@/lib/types'
 import React, { useState, useMemo } from "react";
+import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -47,6 +48,7 @@ async function fetchAgencyTours(id: string) {
 
 export default function AgencyDashboardPage() {
   const params = useParams()
+  const router = useRouter()
   const agencyId = Array.isArray(params.id) ? params.id[0] : params.id
 
   const { data: agency, isLoading: agencyLoading } = useQuery({
@@ -190,6 +192,19 @@ export default function AgencyDashboardPage() {
       qc.invalidateQueries({ queryKey: ['agency-employees', agencyId] })
     },
     onError: () => toast.error('Failed to update role.'),
+  })
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+
+  const deleteAgencyMutation = useMutation({
+    mutationFn: () => apiEndpoints.agencies.delete(agencyId),
+    onSuccess: () => {
+      toast.success('Agency deleted.')
+      qc.invalidateQueries({ queryKey: ['my-agencies'] })
+      router.push('/agencies')
+    },
+    onError: () => toast.error('Failed to delete agency.'),
   })
 
   const [settingsName, setSettingsName] = useState('')
@@ -1062,7 +1077,8 @@ export default function AgencyDashboardPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="max-w-xl mx-auto">
+              <div className="space-y-4 max-w-xl mx-auto">
+              <Card>
                 <CardContent className="pt-6 space-y-5">
                   {/* Logo */}
                   <div className="space-y-2">
@@ -1144,8 +1160,65 @@ export default function AgencyDashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Danger zone */}
+              <Card className="border-destructive/40">
+                <CardContent className="pt-6 flex flex-col gap-3">
+                  <div>
+                    <h3 className="font-semibold text-destructive text-sm">Danger Zone</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Permanently delete this agency and all its tours, staff, and data.
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => { setDeleteConfirm(''); setDeleteOpen(true) }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Delete Agency
+                  </Button>
+                </CardContent>
+              </Card>
+              </div>
             )}
           </TabsContent>
+
+          {/* Delete agency dialog */}
+          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Agency</DialogTitle>
+                <DialogDescription>
+                  This will permanently delete <strong>{agency.name}</strong> and all its tours, members, and data. This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2">
+                <label className="text-sm font-medium">
+                  Type <span className="font-mono font-bold">agree</span> to confirm
+                </label>
+                <Input
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder="agree"
+                  autoComplete="off"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteConfirm !== 'agree' || deleteAgencyMutation.isPending}
+                  onClick={() => deleteAgencyMutation.mutate()}
+                >
+                  {deleteAgencyMutation.isPending ? 'Deleting…' : 'Delete Agency'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </Tabs>
       </div>
     </PageShell>

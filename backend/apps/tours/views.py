@@ -38,6 +38,7 @@ from apps.tours.serializers import (
 from apps.tours.services import (
     agency_approve,
     agency_create,
+    agency_delete,
     agency_reject,
     agency_update,
     invitation_accept,
@@ -66,6 +67,7 @@ class AgencyViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     filter_backends = [SearchFilter, OrderingFilter]
@@ -75,9 +77,9 @@ class AgencyViewSet(
 
     def get_queryset(self):
         user = self.request.user
-        if self.action == "retrieve":
-            # Public: anyone can view an approved agency; staff see all
-            if user.is_authenticated and user.is_staff:
+        if self.action in ("retrieve", "destroy"):
+            # Public: anyone can view an approved agency; staff/members see all
+            if user.is_authenticated and (user.is_staff or self.action == "destroy"):
                 return Agency.objects.all()
             return Agency.objects.filter(status="approved")
         if user.is_staff:
@@ -104,6 +106,16 @@ class AgencyViewSet(
         if self.action == "retrieve":
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
+
+    def destroy(self, request, *args, **kwargs):
+        from rest_framework.exceptions import PermissionDenied
+
+        agency = self.get_object()
+        employee = agency.employees.filter(user=request.user).first()
+        if not employee or employee.role != EmployeeRole.OWNER:
+            raise PermissionDenied("Only the agency owner can delete the agency.")
+        agency_delete(agency=agency)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -161,6 +173,12 @@ class AgencyEmployeeViewSet(
         employee = self.get_object()
         if employee.role == EmployeeRole.OWNER:
             raise ValidationError("Cannot remove the agency owner.")
+        # Reassign tours created by this employee to the agency owner
+        owner = employee.agency.employees.filter(role=EmployeeRole.OWNER).first()
+        if owner:
+            Tour.objects.filter(agency=employee.agency, created_by=employee).update(
+                created_by=owner
+            )
         employee.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -375,6 +393,7 @@ class TourViewSet(
             cover_image=vd.get("cover_image"),
             hotels=hotels,
             transfers=vd.get("transfers"),
+            images=request.FILES.getlist("tour_images"),
         )
         return Response(
             TourSerializer(tour).data, status=status.HTTP_201_CREATED
@@ -384,8 +403,11 @@ class TourViewSet(
     def partial_update_tour(self, request, agency_pk=None, pk=None):
         tour = get_object_or_404(Tour, pk=pk, agency_id=agency_pk)
 
-        data = _parse_multipart_fields(request.data, ["hotels"])
+        data = _parse_multipart_fields(
+            request.data, ["hotels", "existing_tour_image_ids"]
+        )
         hotels_raw = data.pop("hotels", None)
+        existing_tour_image_ids = data.pop("existing_tour_image_ids", None)
 
         hotels = None
         if hotels_raw is not None:
@@ -404,7 +426,11 @@ class TourViewSet(
         serializer = TourUpdateSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         tour = tour_update(
-            tour=tour, hotels=hotels, **serializer.validated_data
+            tour=tour,
+            hotels=hotels,
+            new_images=request.FILES.getlist("tour_images"),
+            existing_tour_image_ids=existing_tour_image_ids,
+            **serializer.validated_data,
         )
         return Response(TourSerializer(tour).data)
 

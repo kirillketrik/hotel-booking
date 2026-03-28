@@ -518,8 +518,9 @@ function ToursTab() {
 }
 
 export default function AdminModerationPage() {
-  const { user, isStaff } = useAuthStore()
+  const { user, isStaff, isLoading: authLoading } = useAuthStore()
 
+  if (authLoading) return null
   if (!user || !isStaff()) {
     return (
       <PageShell>

@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from apps.common.notifications import notify_admins, notify_async
@@ -100,6 +101,19 @@ def agency_reject(*, agency: Agency, reason: str) -> Agency:
     )
 
     return agency
+
+
+def agency_delete(*, agency: Agency) -> None:
+    """Delete an agency and all its protected relations in the correct order."""
+    with transaction.atomic():
+        # 1. Invitations reference AgencyEmployee via created_by (PROTECT)
+        Invitation.objects.filter(agency=agency).delete()
+        # 2. Tours reference Agency and AgencyEmployee (both PROTECT)
+        Tour.objects.filter(agency=agency).delete()
+        # 3. Now employees can be removed
+        AgencyEmployee.objects.filter(agency=agency).delete()
+        # 4. Finally delete the agency itself
+        agency.delete()
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +345,12 @@ def _upsert_hotel(*, tour: Tour, hotel_data: dict) -> Hotel:
 
 
 def tour_update(
-    *, tour: Tour, hotels: list[dict] | None = None, **data
+    *,
+    tour: Tour,
+    hotels: list[dict] | None = None,
+    new_images: list | None = None,
+    existing_tour_image_ids: list | None = None,
+    **data,
 ) -> Tour:
     allowed_fields = {
         "title",
@@ -359,6 +378,15 @@ def tour_update(
         tour.hotels.exclude(pk__in=submitted_ids).delete()
         for hotel_data in hotels:
             _upsert_hotel(tour=tour, hotel_data=dict(hotel_data))
+
+    if existing_tour_image_ids is not None:
+        tour.images.exclude(pk__in=existing_tour_image_ids).delete()
+    if new_images:
+        next_order = tour.images.count()
+        for idx, image_file in enumerate(new_images):
+            TourImage.objects.create(
+                tour=tour, image=image_file, order=next_order + idx
+            )
 
     notify_admins(
         title="Tour updated — pending re-review",

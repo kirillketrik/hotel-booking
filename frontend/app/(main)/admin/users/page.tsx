@@ -20,7 +20,7 @@ import type { ManagedUser, PaginatedResponse } from '@/lib/types'
 const PAGE_SIZE = 20
 
 export default function UsersPage() {
-  const { isStaff } = useAuthStore()
+  const { isStaff, isLoading: authLoading } = useAuthStore()
   const router = useRouter()
   const qc = useQueryClient()
 
@@ -29,17 +29,13 @@ export default function UsersPage() {
   const [ordering, setOrdering] = useState('-date_joined')
   const [page, setPage] = useState(1)
 
-  if (!isStaff()) {
-    router.replace('/')
-    return null
-  }
-
   const { data, isLoading } = useQuery({
     queryKey: ['staff-users', appliedSearch, ordering, page],
     queryFn: () =>
       apiEndpoints.staff.users
         .list({ search: appliedSearch || undefined, ordering, page, page_size: PAGE_SIZE })
         .then((r) => r.data as PaginatedResponse<ManagedUser>),
+    enabled: !authLoading && isStaff(),
   })
 
   const updateMutation = useMutation({
@@ -54,6 +50,12 @@ export default function UsersPage() {
 
   const users = data?.results ?? []
   const totalPages = data ? Math.ceil(data.count / PAGE_SIZE) : 0
+
+  if (authLoading) return null
+  if (!isStaff()) {
+    router.replace('/')
+    return null
+  }
 
   return (
     <PageShell>

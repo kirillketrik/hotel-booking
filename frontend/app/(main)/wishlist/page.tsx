@@ -12,9 +12,10 @@ import Link from 'next/link'
 import type { Tour, PaginatedResponse } from '@/lib/types'
 
 export default function WishlistPage() {
-  const { user } = useAuthStore()
+  const { user, isLoading: authLoading } = useAuthStore()
   const router = useRouter()
 
+  if (authLoading) return null
   if (!user) {
     router.replace('/login')
     return null

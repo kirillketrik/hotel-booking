@@ -36,6 +36,14 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config
+
+    // Don't re-intercept the refresh endpoint itself — prevents deadlock when
+    // both tokens are expired (the refresh 401 would otherwise re-enter the
+    // isRefreshing branch and hang forever in the failedQueue).
+    if (originalRequest.url?.includes('/users/refresh/')) {
+      return Promise.reject(error)
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -54,7 +62,6 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError)
-        // Redirect to login — we broadcast an event so the app can react
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth:logout'))
         }
@@ -82,6 +89,7 @@ export const apiEndpoints = {
     update: (id: string, data: FormData) => api.patch(`/api/v1/agencies/${id}/update/`, data),
     approve: (id: string) => api.post(`/api/v1/agencies/${id}/approve/`),
     reject: (id: string, reason?: string) => api.post(`/api/v1/agencies/${id}/reject/`, { reason }),
+    delete: (id: string) => api.delete(`/api/v1/agencies/${id}/`),
   },
 
   employees: {

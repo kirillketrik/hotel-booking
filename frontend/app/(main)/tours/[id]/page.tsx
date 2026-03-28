@@ -39,6 +39,7 @@ import {
   Users,
   XCircle,
   Images,
+  X,
 } from 'lucide-react';
 import { WishlistButton } from '@/components/wishlist-button';
 import { toast } from 'sonner';
@@ -91,10 +92,23 @@ function StatPill({
 }
 
 function HotelCard({ hotel }: { hotel: Hotel }) {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (lightboxIndex === null) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') setLightboxIndex((i) => ((i ?? 0) - 1 + hotel.images.length) % hotel.images.length)
+      if (e.key === 'ArrowRight') setLightboxIndex((i) => ((i ?? 0) + 1) % hotel.images.length)
+      if (e.key === 'Escape') setLightboxIndex(null)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxIndex, hotel.images.length])
+
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
       {hotel.images.length > 0 && (
-        <div className="grid grid-cols-3 gap-0.5 h-36">
+        <div className="grid grid-cols-3 gap-0.5 h-36 cursor-pointer" onClick={() => setLightboxIndex(0)}>
           <div className="col-span-2 overflow-hidden">
             <img
               src={hotel.images[0].image}
@@ -120,6 +134,45 @@ function HotelCard({ hotel }: { hotel: Hotel }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Hotel lightbox */}
+      {lightboxIndex !== null && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxIndex(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
+            onClick={() => setLightboxIndex(null)}
+            aria-label="Close"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <button
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-2"
+            onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => ((i ?? 0) - 1 + hotel.images.length) % hotel.images.length) }}
+            aria-label="Previous"
+          >
+            <ChevronLeft className="w-8 h-8" />
+          </button>
+          <img
+            src={hotel.images[lightboxIndex].image}
+            alt={hotel.name}
+            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-2"
+            onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => ((i ?? 0) + 1) % hotel.images.length) }}
+            aria-label="Next"
+          >
+            <ChevronRight className="w-8 h-8" />
+          </button>
+          <span className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/60 text-sm">
+            {lightboxIndex + 1} / {hotel.images.length}
+          </span>
         </div>
       )}
       <div className="p-4">
@@ -279,6 +332,24 @@ export default function TourDetailPage() {
     onError: () => toast.error('Failed to delete tour'),
   });
 
+  const allImages = tour
+    ? [
+        ...(tour.cover_image ? [{ id: 'cover', image: tour.cover_image, order: -1 }] : []),
+        ...tour.images,
+      ]
+    : []
+
+  useEffect(() => {
+    if (!galleryOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') setGalleryIndex(i => (i - 1 + allImages.length) % allImages.length)
+      if (e.key === 'ArrowRight') setGalleryIndex(i => (i + 1) % allImages.length)
+      if (e.key === 'Escape') setGalleryOpen(false)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [galleryOpen, allImages.length])
+
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -315,22 +386,6 @@ export default function TourDetailPage() {
       </PageShell>
     );
   }
-
-  const allImages = [
-    ...(tour.cover_image ? [{ id: 'cover', image: tour.cover_image, order: -1 }] : []),
-    ...tour.images,
-  ];
-
-  useEffect(() => {
-    if (!galleryOpen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') setGalleryIndex(i => (i - 1 + allImages.length) % allImages.length)
-      if (e.key === 'ArrowRight') setGalleryIndex(i => (i + 1) % allImages.length)
-      if (e.key === 'Escape') setGalleryOpen(false)
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [galleryOpen, allImages.length])
 
   const startDate = new Date(tour.start_date);
   const endDate = new Date(tour.end_date);

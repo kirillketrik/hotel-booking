@@ -29,7 +29,7 @@ class UsersViewSet(
         return user_get_queryset(pk=self.request.user.pk)
 
     def get_permissions(self):
-        if self.action in ["register", "login", "csrf"]:
+        if self.action in ["register", "login", "csrf", "refresh"]:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
