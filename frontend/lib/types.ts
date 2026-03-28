@@ -111,6 +111,16 @@ export interface Tour {
   updated_at: string
 }
 
+export interface ManagedUser {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  is_staff: boolean
+  is_active: boolean
+  date_joined: string
+}
+
 export interface Notification {
   id: string
   title: string

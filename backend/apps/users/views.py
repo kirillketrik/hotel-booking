@@ -4,6 +4,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -13,6 +14,7 @@ from apps.users.selectors import user_get_queryset
 from apps.users.serializers import (
     LoginUserSerializer,
     RegisterUserSerializer,
+    UserManagementSerializer,
     UserSerializer,
 )
 from apps.users.services import user_login, user_register
@@ -141,3 +143,25 @@ class UsersViewSet(
             refresh_token=str(refresh_token),
         )
         return response
+
+
+class UserManagementViewSet(
+    mixins.ListModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Staff-only endpoint for listing and managing users."""
+
+    serializer_class = UserManagementSerializer
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["email", "first_name", "last_name"]
+    ordering_fields = ["email", "date_joined", "is_staff", "is_active"]
+    ordering = ["-date_joined"]
+
+    def get_queryset(self):
+        return User.objects.all()
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)

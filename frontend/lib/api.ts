@@ -142,4 +142,13 @@ export const apiEndpoints = {
     markRead: (id: string) => api.post(`/api/v1/notifications/${id}/read/`),
     markAllRead: () => api.post('/api/v1/notifications/read-all/'),
   },
+
+  staff: {
+    users: {
+      list: (params?: Record<string, unknown>) =>
+        api.get('/api/v1/staff/users/', { params }),
+      update: (id: string, data: { is_staff?: boolean; is_active?: boolean }) =>
+        api.patch(`/api/v1/staff/users/${id}/`, data),
+    },
+  },
 }

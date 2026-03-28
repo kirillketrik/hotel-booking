@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageShell } from '@/components/page-shell'
 import { TourCard, TourCardSkeleton } from '@/components/tour-card'
@@ -32,6 +33,9 @@ interface Filters {
   start_date_to: string
   duration_min: string
   duration_max: string
+  start_month: string
+  min_adults: string
+  min_children: string
   ordering: string
 }
 
@@ -45,8 +49,19 @@ const defaultFilters: Filters = {
   start_date_to: '',
   duration_min: '',
   duration_max: '',
+  start_month: '',
+  min_adults: '',
+  min_children: '',
   ordering: '-created_at',
 }
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+const MAX_PRICE = 10000
+const MAX_DURATION = 30
 
 // Public catalog: list all approved tours across all agencies
 async function fetchPublicTours(filters: Filters, page: number) {
@@ -75,6 +90,9 @@ const FILTER_LABELS: Record<keyof Filters, string> = {
   start_date_to: 'To date',
   duration_min: 'Min days',
   duration_max: 'Max days',
+  start_month: 'Month',
+  min_adults: 'Adults',
+  min_children: 'Children',
   ordering: 'Sort',
 }
 
@@ -271,30 +289,111 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Price range */}
+                {/* Price range slider */}
+                <div className="px-4 py-3 border-b flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price Range</p>
+                    <span className="text-xs text-muted-foreground">
+                      ${pendingFilters.price_min || 0} – ${pendingFilters.price_max || MAX_PRICE}
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={MAX_PRICE}
+                    step={50}
+                    value={[
+                      Number(pendingFilters.price_min) || 0,
+                      Number(pendingFilters.price_max) || MAX_PRICE,
+                    ]}
+                    onValueChange={([min, max]) =>
+                      setPendingFilters((f) => ({
+                        ...f,
+                        price_min: min === 0 ? '' : String(min),
+                        price_max: max === MAX_PRICE ? '' : String(max),
+                      }))
+                    }
+                  />
+                </div>
+
+                {/* Duration slider */}
+                <div className="px-4 py-3 border-b flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duration</p>
+                    <span className="text-xs text-muted-foreground">
+                      {pendingFilters.duration_min || 1}–{pendingFilters.duration_max || MAX_DURATION} days
+                    </span>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={MAX_DURATION}
+                    step={1}
+                    value={[
+                      Number(pendingFilters.duration_min) || 1,
+                      Number(pendingFilters.duration_max) || MAX_DURATION,
+                    ]}
+                    onValueChange={([min, max]) =>
+                      setPendingFilters((f) => ({
+                        ...f,
+                        duration_min: min === 1 ? '' : String(min),
+                        duration_max: max === MAX_DURATION ? '' : String(max),
+                      }))
+                    }
+                  />
+                </div>
+
+                {/* Month */}
                 <div className="px-4 py-3 border-b flex flex-col gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Price Range</p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min $"
-                      value={pendingFilters.price_min}
-                      onChange={(e) => setPendingFilters((f) => ({ ...f, price_min: e.target.value }))}
-                      className="h-8 text-sm"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Max $"
-                      value={pendingFilters.price_max}
-                      onChange={(e) => setPendingFilters((f) => ({ ...f, price_max: e.target.value }))}
-                      className="h-8 text-sm"
-                    />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Month of Departure</p>
+                  <Select
+                    value={pendingFilters.start_month || 'any'}
+                    onValueChange={(v) =>
+                      setPendingFilters((f) => ({ ...f, start_month: v === 'any' ? '' : v }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Any month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any month</SelectItem>
+                      {MONTHS.map((m, i) => (
+                        <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Group size */}
+                <div className="px-4 py-3 border-b flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Group Size</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Adults</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Any"
+                        value={pendingFilters.min_adults}
+                        onChange={(e) => setPendingFilters((f) => ({ ...f, min_adults: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Children</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Any"
+                        value={pendingFilters.min_children}
+                        onChange={(e) => setPendingFilters((f) => ({ ...f, min_children: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Start date */}
                 <div className="px-4 py-3 border-b flex flex-col gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Start Date</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Date Range</p>
                   <div className="flex gap-2">
                     <Input
                       type="date"
@@ -306,27 +405,6 @@ export default function HomePage() {
                       type="date"
                       value={pendingFilters.start_date_to}
                       onChange={(e) => setPendingFilters((f) => ({ ...f, start_date_to: e.target.value }))}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Duration */}
-                <div className="px-4 py-3 border-b flex flex-col gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Duration (days)</p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pendingFilters.duration_min}
-                      onChange={(e) => setPendingFilters((f) => ({ ...f, duration_min: e.target.value }))}
-                      className="h-8 text-sm"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pendingFilters.duration_max}
-                      onChange={(e) => setPendingFilters((f) => ({ ...f, duration_max: e.target.value }))}
                       className="h-8 text-sm"
                     />
                   </div>
@@ -407,7 +485,7 @@ export default function HomePage() {
                       key={k}
                       className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20"
                     >
-                      {FILTER_LABELS[k]}: {filters[k]}
+                      {FILTER_LABELS[k]}: {k === 'start_month' ? MONTHS[Number(filters[k]) - 1] : filters[k]}
                       <button
                         onClick={() => {
                           const next = { ...filters, [k]: defaultFilters[k] }

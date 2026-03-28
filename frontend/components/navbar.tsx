@@ -14,6 +14,8 @@ import {
   X,
   MapPin,
   Mail,
+  Users,
+  ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -91,10 +93,29 @@ export function Navbar() {
               </>
             )}
             {isStaff() && (
-              <Link href="/admin/moderation" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Moderation
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md transition-colors flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Staff
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/moderation" className="flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4" />
+                      Moderation
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/users" className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Users
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </nav>
 
@@ -151,10 +172,19 @@ export function Navbar() {
                     {isStaff() && (
                       <>
                         <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-xs text-muted-foreground font-normal py-1">
+                          Staff
+                        </DropdownMenuLabel>
                         <DropdownMenuItem asChild>
                           <Link href="/admin/moderation" className="flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4" />
+                            <ClipboardList className="w-4 h-4" />
                             Moderation
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/users" className="flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            Users
                           </Link>
                         </DropdownMenuItem>
                       </>
@@ -219,9 +249,16 @@ export function Navbar() {
                 Notifications {unreadCount > 0 && `(${unreadCount})`}
               </Link>
               {isStaff() && (
-                <Link href="/admin/moderation" className="py-2 text-sm text-foreground" onClick={() => setMobileOpen(false)}>
-                  Moderation
-                </Link>
+                <>
+                  <Link href="/admin/moderation" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                    <ClipboardList className="w-4 h-4" />
+                    Moderation
+                  </Link>
+                  <Link href="/admin/users" className="py-2 text-sm text-foreground flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                    <Users className="w-4 h-4" />
+                    Users
+                  </Link>
+                </>
               )}
               <button
                 className="py-2 text-sm text-destructive text-left"

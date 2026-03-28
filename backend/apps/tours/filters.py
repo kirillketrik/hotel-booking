@@ -44,6 +44,11 @@ class TourFilter(django_filters.FilterSet):
         field_name="location__city", lookup_expr="iexact"
     )
 
+    # Month of start date (1–12)
+    start_month = django_filters.NumberFilter(
+        field_name="start_date", lookup_expr="month"
+    )
+
     # Status
     status = django_filters.CharFilter(
         field_name="status", lookup_expr="exact"

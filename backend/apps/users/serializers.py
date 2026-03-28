@@ -43,3 +43,26 @@ class UserSerializer(serializers.ModelSerializer):
             "is_staff",
         )
         read_only_fields = ("id", "email", "groups", "is_staff")
+
+
+class UserManagementSerializer(serializers.ModelSerializer):
+    """Staff-only serializer with editable is_staff / is_active."""
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "is_staff",
+            "is_active",
+            "date_joined",
+        )
+        read_only_fields = (
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "date_joined",
+        )
