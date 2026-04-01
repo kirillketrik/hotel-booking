@@ -42,9 +42,11 @@ import {
   X,
 } from 'lucide-react';
 import { WishlistButton } from '@/components/wishlist-button';
+import { BookingDialog } from '@/components/booking-dialog';
+import { ReviewSection } from '@/components/review-section';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/store';
-import type { Tour, Hotel, TourTransfer } from '@/lib/types';
+import type { Tour, Hotel, TourAvailability, TourTransfer } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -294,6 +296,13 @@ export default function TourDetailPage() {
     queryFn: () =>
       apiEndpoints.employees.list(tour!.agency).then((r) => r.data.results ?? r.data),
     enabled: !!tour?.agency && !!user,
+  });
+
+  const { data: availability } = useQuery<TourAvailability>({
+    queryKey: ['tour-availability', tourId],
+    queryFn: () => apiEndpoints.publicTours.availability(tourId).then((r) => r.data),
+    enabled: !!tour && tour.status === 'approved',
+    staleTime: 30_000,
   });
 
   const myRole =
@@ -548,6 +557,13 @@ export default function TourDetailPage() {
                   <Building2 className="w-4 h-4" />
                   {tour.agency_name}
                 </Link>
+                {tour.rating && (
+                  <span className="flex items-center gap-1 text-yellow-500 font-medium">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    {tour.rating}
+                    <span className="text-muted-foreground font-normal">/ 10</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -668,6 +684,10 @@ export default function TourDetailPage() {
                 </section>
               </>
             )}
+
+            {/* Reviews */}
+            <Separator />
+            <ReviewSection tourId={tourId} />
           </div>
 
           {/* ── Right sticky booking card ── */}
@@ -715,6 +735,21 @@ export default function TourDetailPage() {
                     {tour.max_adults} adults, {tour.max_children} children
                   </span>
                 </div>
+                {availability && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Users className="w-4 h-4" />
+                      Availability
+                    </span>
+                    {availability.is_fully_booked ? (
+                      <span className="font-medium text-destructive">Fully booked</span>
+                    ) : (
+                      <span className="font-medium text-green-600">
+                        {availability.available_adults} adult{availability.available_adults !== 1 ? 's' : ''} left
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground flex items-center gap-1.5">
                     <MapPin className="w-4 h-4" />
@@ -744,6 +779,17 @@ export default function TourDetailPage() {
                   </ul>
                   <Separator className="mt-4" />
                 </div>
+              )}
+
+              {/* Book Now */}
+              {tour.status === 'approved' && (
+                user ? (
+                  <BookingDialog tour={tour} initialIsFullyBooked={availability?.is_fully_booked} />
+                ) : (
+                  <Button className="w-full" asChild>
+                    <Link href="/login">Sign in to Book</Link>
+                  </Button>
+                )
               )}
 
               {/* Agency link */}

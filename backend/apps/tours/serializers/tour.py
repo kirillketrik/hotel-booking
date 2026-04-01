@@ -26,6 +26,8 @@ class TourSerializer(serializers.ModelSerializer):
         source="agency.name", read_only=True
     )
     is_wishlisted = serializers.SerializerMethodField()
+    available_adults = serializers.SerializerMethodField()
+    available_children = serializers.SerializerMethodField()
 
     class Meta:
         model = Tour
@@ -43,8 +45,11 @@ class TourSerializer(serializers.ModelSerializer):
             "location",
             "max_adults",
             "max_children",
+            "available_adults",
+            "available_children",
             "status",
             "rejection_reason",
+            "rating",
             "images",
             "hotels",
             "transfers",
@@ -67,6 +72,14 @@ class TourSerializer(serializers.ModelSerializer):
             return False
         from apps.tours.models import Wishlist
         return Wishlist.objects.filter(user=request.user, tour=obj).exists()
+
+    def get_available_adults(self, obj) -> int:
+        used = getattr(obj, "used_adults", 0) or 0
+        return max(obj.max_adults - used, 0)
+
+    def get_available_children(self, obj) -> int:
+        used = getattr(obj, "used_children", 0) or 0
+        return max(obj.max_children - used, 0)
 
 
 class TourTransferInputSerializer(serializers.Serializer):

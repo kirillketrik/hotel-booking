@@ -759,6 +759,20 @@ wheels = [
 ]
 
 [[package]]
+name = "django-computedfields"
+version = "0.3.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "django-fast-update" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/15/56ea657426e53d37951eace0f2f9ecf41ecce961388cbf68f87bf24371bc/django_computedfields-0.3.6.tar.gz", hash = "sha256:91406ec94f51176db73ca83361e56f289329441bf03691b83164c3618a9d31ba", size = 484435, upload-time = "2026-03-20T17:01:55.536Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/34/9df52c47c2dfb8fffcec65482b39f9afe3bf949497a77a090ec3953fe806/django_computedfields-0.3.6-py3-none-any.whl", hash = "sha256:5d0acf2505a504c542d201c5623a5a55a794834ed2116982ec906e9ccb8721c4", size = 457551, upload-time = "2026-03-20T17:01:53.676Z" },
+]
+
+[[package]]
 name = "django-cors-headers"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -769,6 +783,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/21/39/55822b15b7ec87410f34cd16ce04065ff390e50f9e29f31d6d116fc80456/django_cors_headers-4.9.0.tar.gz", hash = "sha256:fe5d7cb59fdc2c8c646ce84b727ac2bca8912a247e6e68e1fb507372178e59e8", size = 21458, upload-time = "2025-09-18T10:40:52.326Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/30/d8/19ed1e47badf477d17fb177c1c19b5a21da0fd2d9f093f23be3fb86c5fab/django_cors_headers-4.9.0-py3-none-any.whl", hash = "sha256:15c7f20727f90044dcee2216a9fd7303741a864865f0c3657e28b7056f61b449", size = 12809, upload-time = "2025-09-18T10:40:50.843Z" },
+]
+
+[[package]]
+name = "django-fast-update"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/6d/6fa970959833893a93d7f60a2a77494a3f96bafa6fa45bce7b001c04c1f7/django_fast_update-0.3.0.tar.gz", hash = "sha256:6cbd0fb9d4899023b174f0840fb70bc29b3519991bce2b9f92a7d64aace42883", size = 22693, upload-time = "2025-08-04T17:03:43.387Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cf/88/a1400eaef9b1ecf834fdef1bf6c0fb32d37068b813568235740eaa1e8efa/django_fast_update-0.3.0-py3-none-any.whl", hash = "sha256:88ccb5172dd2eafdc040709bbb0a805b4e36697d2bc000e5a17126fa054c43b1", size = 24433, upload-time = "2025-08-04T17:03:40.706Z" },
 ]
 
 [[package]]
@@ -1108,6 +1134,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "daphne" },
     { name = "django" },
+    { name = "django-computedfields" },
     { name = "django-cors-headers" },
     { name = "django-filter" },
     { name = "django-minio-storage" },
@@ -1132,6 +1159,7 @@ dependencies = [
     { name = "pytest-cov" },
     { name = "pytest-django" },
     { name = "sqlalchemy" },
+    { name = "stripe" },
     { name = "uuid6" },
 ]
 
@@ -1150,6 +1178,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46.0.5" },
     { name = "daphne", specifier = ">=4.2.1" },
     { name = "django", specifier = ">=6.0.3" },
+    { name = "django-computedfields", specifier = ">=0.2.9" },
     { name = "django-cors-headers", specifier = ">=4.9.0" },
     { name = "django-filter", specifier = ">=25.2" },
     { name = "django-minio-storage", specifier = ">=0.5.9" },
@@ -1174,6 +1203,7 @@ requires-dist = [
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-django", specifier = ">=4.12.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
+    { name = "stripe", specifier = ">=10.0.0" },
     { name = "uuid6", specifier = ">=2025.0.1" },
 ]
 
@@ -2861,6 +2891,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6d/90764092216fa560f6587f83bb70113a8ba510ba436c6476a2b47359057c/stevedore-5.7.0.tar.gz", hash = "sha256:31dd6fe6b3cbe921e21dcefabc9a5f1cf848cf538a1f27543721b8ca09948aa3", size = 516200, upload-time = "2026-02-20T13:27:06.765Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/69/06/36d260a695f383345ab5bbc3fd447249594ae2fa8dfd19c533d5ae23f46b/stevedore-5.7.0-py3-none-any.whl", hash = "sha256:fd25efbb32f1abb4c9e502f385f0018632baac11f9ee5d1b70f88cc5e22ad4ed", size = 54483, upload-time = "2026-02-20T13:27:05.561Z" },
+]
+
+[[package]]
+name = "stripe"
+version = "15.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/5a/0cdea4b7911b8012936c765544109da27c0728f6911ec7aefe9d59e7a4f9/stripe-15.0.0.tar.gz", hash = "sha256:0717cd9ba8e8193cef8b1c488ce27836754df496ab6fb75864096e0cdf15e52d", size = 1486873, upload-time = "2026-03-26T01:39:04.073Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/4a/4431c998c451cf07f8b4fed98f425b4aaf3d59cc4fb1e6f54d7713606688/stripe-15.0.0-py3-none-any.whl", hash = "sha256:434ec5267a7402a30b76786d159c18d0e138f89195969d6c56bea2e08d353be0", size = 2125454, upload-time = "2026-03-26T01:39:01.801Z" },
 ]
 
 [[package]]

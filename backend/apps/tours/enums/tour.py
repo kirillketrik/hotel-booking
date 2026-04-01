@@ -22,3 +22,12 @@ class NotificationType(models.TextChoices):
     TOUR_APPROVED = "tour_approved", "Tour Approved"
     TOUR_REJECTED = "tour_rejected", "Tour Rejected"
     INVITATION_RECEIVED = "invitation_received", "Invitation Received"
+    BOOKING_CONFIRMED = "booking_confirmed", "Booking Confirmed"
+
+
+class BookingStatus(models.TextChoices):
+    PENDING_PAYMENT = "pending_payment", "Pending Payment"
+    PAID = "paid", "Paid"
+    CONFIRMED = "confirmed", "Confirmed"
+    CANCELLED = "cancelled", "Cancelled"
+    REFUNDED = "refunded", "Refunded"

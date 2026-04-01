@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { format } from 'date-fns'
 import { apiEndpoints } from '@/lib/api'
 import { PageShell } from '@/components/page-shell'
 import { Button } from '@/components/ui/button'
@@ -12,12 +13,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/status-badge'
-import { Plus, Users, BarChart3, CheckCircle2, Clock, XCircle, Trash2, Mail, UserPlus, Link2, Copy, ShieldCheck, Building2, MapPin, CalendarDays, Upload, Download, FileText, AlertCircle } from 'lucide-react'
+import { Plus, Users, BarChart3, CheckCircle2, Clock, XCircle, Trash2, Mail, UserPlus, Link2, Copy, ShieldCheck, Building2, MapPin, CalendarDays, Upload, Download, FileText, AlertCircle, Star } from 'lucide-react'
 import { TourCard, TourCardSkeleton } from '@/components/tour-card'
+import { AgencyReviewSection } from '@/components/agency-review-section'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store'
-import type { Agency, AgencyEmployee, Invitation, Tour } from '@/lib/types'
+import type { Agency, AgencyEmployee, Booking, Invitation, PaginatedResponse, Tour } from '@/lib/types'
 import React, { useState, useMemo } from "react";
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -44,6 +46,88 @@ async function fetchAgency(id: string) {
 async function fetchAgencyTours(id: string) {
   const res = await apiEndpoints.tours.list(id)
   return res.data.results || []
+}
+
+const BOOKING_STATUS_LABELS: Record<Booking['status'], string> = {
+  pending_payment: 'Pending Payment',
+  paid: 'Paid',
+  confirmed: 'Confirmed',
+  cancelled: 'Cancelled',
+  refunded: 'Refunded',
+}
+
+function AgencyBookingsTab({ agencyId, enabled }: { agencyId: string; enabled: boolean }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['agency-bookings', agencyId],
+    queryFn: () =>
+      apiEndpoints.agencyBookings
+        .list(agencyId)
+        .then((r) => {
+          const d = r.data
+          return (Array.isArray(d) ? d : (d as PaginatedResponse<Booking>).results ?? []) as Booking[]
+        }),
+    enabled,
+  })
+
+  const bookings = data ?? []
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+      </div>
+    )
+  }
+
+  if (bookings.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-center text-muted-foreground py-12">
+          No bookings yet for this agency&apos;s tours.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {bookings.map((booking) => (
+        <div key={booking.id} className="rounded-xl border bg-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/tours/${booking.tour.id}`}
+                className="font-medium hover:underline truncate"
+              >
+                {booking.tour.title}
+              </Link>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                booking.status === 'paid' || booking.status === 'confirmed'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : booking.status === 'pending_payment'
+                  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {BOOKING_STATUS_LABELS[booking.status]}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+              <span>{booking.user_full_name || booking.user_email}</span>
+              <span>·</span>
+              <span>{booking.adults_count} adult{booking.adults_count !== 1 ? 's' : ''}{booking.children_count > 0 ? `, ${booking.children_count} child${booking.children_count !== 1 ? 'ren' : ''}` : ''}</span>
+              <span>·</span>
+              <span>{format(new Date(booking.tour.start_date), 'MMM d, yyyy')}</span>
+              {booking.contact_phone && <><span>·</span><span>{booking.contact_phone}</span></>}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="font-semibold">${parseFloat(booking.total_price).toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground">{format(new Date(booking.created_at), 'MMM d, yyyy')}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function AgencyDashboardPage() {
@@ -341,7 +425,16 @@ export default function AgencyDashboardPage() {
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h1 className="text-3xl font-bold tracking-tight mb-1">{agency.name}</h1>
+              <div className="flex items-center gap-3 flex-wrap mb-1">
+                <h1 className="text-3xl font-bold tracking-tight">{agency.name}</h1>
+                {agency.rating && (
+                  <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10">
+                    <Star className="w-3.5 h-3.5 fill-primary text-primary" />
+                    <span className="text-sm font-semibold text-primary">{agency.rating}</span>
+                    <span className="text-xs text-muted-foreground">/ 10</span>
+                  </div>
+                )}
+              </div>
               {agency.description && (
                 <p className="text-muted-foreground leading-relaxed">{agency.description}</p>
               )}
@@ -653,6 +746,7 @@ export default function AgencyDashboardPage() {
           <div className="flex justify-center mb-2">
             <TabsList>
               <TabsTrigger value="tours">Tours</TabsTrigger>
+              {myRole && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
               {canManageStaff && <TabsTrigger value="staff">Staff</TabsTrigger>}
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
@@ -1067,6 +1161,10 @@ export default function AgencyDashboardPage() {
                 </div>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="bookings">
+            <AgencyBookingsTab agencyId={agencyId} enabled={activeTab === 'bookings' && !!myRole} />
           </TabsContent>
 
           <TabsContent value="settings">

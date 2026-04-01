@@ -163,6 +163,56 @@ export const apiEndpoints = {
     toggle: (tourId: string) => api.post(`/api/v1/wishlist/toggle/${tourId}/`),
   },
 
+  agencyBookings: {
+    list: (agencyId: string, params?: Record<string, unknown>) =>
+      api.get(`/api/v1/agencies/${agencyId}/bookings/`, { params }),
+  },
+
+  publicTours: {
+    availability: (tourId: string) =>
+      api.get(`/api/v1/tours/${tourId}/availability/`),
+  },
+
+  reviews: {
+    list: (tourId: string) =>
+      api.get(`/api/v1/tours/${tourId}/reviews/`),
+    create: (tourId: string, data: { rating: number; comment?: string }) =>
+      api.post(`/api/v1/tours/${tourId}/reviews/`, data),
+    update: (tourId: string, reviewId: string, data: { rating?: number; comment?: string }) =>
+      api.patch(`/api/v1/tours/${tourId}/reviews/${reviewId}/`, data),
+    delete: (tourId: string, reviewId: string) =>
+      api.delete(`/api/v1/tours/${tourId}/reviews/${reviewId}/`),
+  },
+
+  agencyReviews: {
+    list: (agencyId: string) =>
+      api.get(`/api/v1/agencies/${agencyId}/reviews/`),
+    create: (agencyId: string, data: { rating: number; comment?: string }) =>
+      api.post(`/api/v1/agencies/${agencyId}/reviews/`, data),
+    update: (agencyId: string, reviewId: string, data: { rating?: number; comment?: string }) =>
+      api.patch(`/api/v1/agencies/${agencyId}/reviews/${reviewId}/`, data),
+    delete: (agencyId: string, reviewId: string) =>
+      api.delete(`/api/v1/agencies/${agencyId}/reviews/${reviewId}/`),
+  },
+
+  bookings: {
+    create: (
+      tourId: string,
+      data: {
+        adults_count: number
+        children_count: number
+        contact_phone: string
+        special_requests?: string
+        room_id?: string | null
+        room_count?: number
+      }
+    ) => api.post(`/api/v1/tours/${tourId}/book/`, data),
+    list: (params?: Record<string, unknown>) =>
+      api.get('/api/v1/bookings/', { params }),
+    get: (id: string) => api.get(`/api/v1/bookings/${id}/`),
+    cancel: (id: string) => api.post(`/api/v1/bookings/${id}/cancel/`),
+  },
+
   staff: {
     users: {
       list: (params?: Record<string, unknown>) =>

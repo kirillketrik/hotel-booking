@@ -1,5 +1,7 @@
 import uuid6
+from computedfields.models import ComputedFieldsModel, computed
 from django.db import models
+from django.db.models import Avg
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from apps.common.models import BaseModel, TimeStampedModel
@@ -10,7 +12,7 @@ from apps.tours.enums.agency import (
 )
 
 
-class Agency(BaseModel, TimeStampedModel):
+class Agency(ComputedFieldsModel, BaseModel, TimeStampedModel):
     name = models.CharField(
         max_length=255, unique=True, verbose_name=_("Name")
     )
@@ -30,6 +32,22 @@ class Agency(BaseModel, TimeStampedModel):
     rejection_reason = models.TextField(
         blank=True, verbose_name=_("Rejection Reason")
     )
+
+    @computed(
+        models.DecimalField(
+            max_digits=3,
+            decimal_places=1,
+            null=True,
+            blank=True,
+            verbose_name=_("Rating"),
+        ),
+        depends=[("agency_reviews", ["rating"])],
+    )
+    def rating(self):
+        result = self.agency_reviews.aggregate(avg=Avg("rating"))["avg"]
+        if result is None:
+            return None
+        return round(result, 1)
 
     class Meta:
         verbose_name = _("Agency")

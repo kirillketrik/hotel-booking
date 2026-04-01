@@ -15,6 +15,7 @@ class AgencySerializer(serializers.ModelSerializer):
             "logo",
             "status",
             "rejection_reason",
+            "rating",
             "my_role",
             "created_at",
             "updated_at",

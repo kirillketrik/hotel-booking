@@ -23,7 +23,18 @@ export interface Agency {
   logo: string | null
   status: 'pending' | 'approved' | 'rejected'
   rejection_reason: string
+  rating: string | null
   my_role: 'owner' | 'admin' | 'operator' | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AgencyReview {
+  id: string
+  user_id: string
+  user_name: string
+  rating: number
+  comment: string
   created_at: string
   updated_at: string
 }
@@ -102,12 +113,25 @@ export interface Tour {
   location: Location
   max_adults: number
   max_children: number
+  available_adults: number
+  available_children: number
   status: 'pending' | 'approved' | 'rejected'
   rejection_reason: string
+  rating: string | null
   is_wishlisted: boolean
   images: { id: string; image: string; order: number }[]
   hotels: Hotel[]
   transfers: TourTransfer[]
+  created_at: string
+  updated_at: string
+}
+
+export interface TourReview {
+  id: string
+  user_id: string
+  user_name: string
+  rating: number
+  comment: string
   created_at: string
   updated_at: string
 }
@@ -134,6 +158,49 @@ export interface Notification {
     | 'tour_approved'
     | 'tour_rejected'
     | 'invitation_received'
+    | 'booking_confirmed'
   is_read: boolean
   created_at: string
+}
+
+export interface RoomAvailability {
+  id: string
+  room_type: string
+  description: string
+  price_per_night: string
+  capacity: number
+  quantity: number
+  available_quantity: number
+}
+
+export interface TourAvailability {
+  available_adults: number
+  available_children: number
+  is_fully_booked: boolean
+  rooms: RoomAvailability[]
+}
+
+export interface Booking {
+  id: string
+  tour: Tour
+  room: { id: string; room_type: string; description: string; price_per_night: string; capacity: number } | null
+  room_count: number
+  user_email: string
+  user_full_name: string
+  status: 'pending_payment' | 'paid' | 'confirmed' | 'cancelled' | 'refunded'
+  adults_count: number
+  children_count: number
+  special_requests: string
+  contact_phone: string
+  total_price: string
+  stripe_payment_intent_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BookingCreateResponse {
+  id: string
+  status: string
+  total_price: string
+  stripe_client_secret: string
 }

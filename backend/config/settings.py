@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "minio_storage",
     "django_filters",
+    "computedfields",
     # Django contrib
     "django.contrib.admin",
     "django.contrib.auth",

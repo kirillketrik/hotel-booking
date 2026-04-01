@@ -1,10 +1,13 @@
+from django.conf import settings as django_settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps.common.notifications import notify_admins, notify_async
 from apps.tours.enums import (
     AgencyStatus,
+    BookingStatus,
     EmployeeRole,
     InvitationStatus,
     NotificationType,
@@ -13,6 +16,8 @@ from apps.tours.enums import (
 from apps.tours.models import (
     Agency,
     AgencyEmployee,
+    AgencyReview,
+    Booking,
     Hotel,
     HotelImage,
     HotelRoom,
@@ -20,6 +25,7 @@ from apps.tours.models import (
     Location,
     Tour,
     TourImage,
+    TourReview,
     TourTransfer,
 )
 
@@ -214,6 +220,14 @@ def _validate_invitation(*, invitation: Invitation, user) -> None:
 # ---------------------------------------------------------------------------
 # Tour
 # ---------------------------------------------------------------------------
+
+
+def tour_delete(*, tour: Tour) -> None:
+    if tour.bookings.exists():
+        raise ValidationError(
+            "This tour cannot be deleted because it has existing bookings."
+        )
+    tour.delete()
 
 
 def tour_create(
@@ -543,3 +557,239 @@ def _notify_agency_admins(
             message=message,
             notification_type=notification_type,
         )
+
+
+# ---------------------------------------------------------------------------
+# Booking
+# ---------------------------------------------------------------------------
+
+
+def booking_create(
+    *,
+    user,
+    tour: Tour,
+    adults_count: int,
+    children_count: int = 0,
+    special_requests: str = "",
+    contact_phone: str,
+    room_id=None,
+    room_count: int = 1,
+) -> Booking:
+    import stripe
+
+    stripe.api_key = (
+        django_settings.SETTINGS.STRIPE.SECRET_KEY.get_secret_value()
+    )
+
+    with transaction.atomic():
+        tour_locked = Tour.objects.select_for_update().get(pk=tour.pk)
+
+        if tour_locked.status != TourStatus.APPROVED:
+            raise ValidationError("This tour is not available for booking.")
+
+        active_statuses = [BookingStatus.PAID, BookingStatus.CONFIRMED]
+
+        used = Booking.objects.filter(
+            tour=tour_locked,
+            status__in=active_statuses,
+        ).aggregate(
+            used_adults=Sum("adults_count"),
+            used_children=Sum("children_count"),
+        )
+        used_adults = used["used_adults"] or 0
+        used_children = used["used_children"] or 0
+
+        if used_adults + adults_count > tour_locked.max_adults:
+            raise ValidationError(
+                "Not enough adult slots available for this tour."
+            )
+        if used_children + children_count > tour_locked.max_children:
+            raise ValidationError(
+                "Not enough children slots available for this tour."
+            )
+
+        room = None
+        if room_id:
+            room = HotelRoom.objects.select_for_update().filter(
+                pk=room_id, hotel__tour=tour_locked
+            ).first()
+            if not room:
+                raise ValidationError(
+                    "Selected room does not belong to this tour."
+                )
+
+            used_room = (
+                Booking.objects.filter(
+                    room=room, status__in=active_statuses
+                ).aggregate(used=Sum("room_count"))["used"]
+                or 0
+            )
+            if used_room + room_count > room.quantity:
+                raise ValidationError(
+                    "Not enough rooms of this type available."
+                )
+
+        base_price = tour_locked.price * (adults_count + children_count)
+        room_price = (
+            room.price_per_night * tour_locked.duration_days * room_count
+            if room
+            else 0
+        )
+        total_price = base_price + room_price
+
+        booking = Booking.objects.create(
+            user=user,
+            tour=tour_locked,
+            room=room,
+            room_count=room_count if room else 1,
+            status=BookingStatus.PENDING_PAYMENT,
+            adults_count=adults_count,
+            children_count=children_count,
+            special_requests=special_requests,
+            contact_phone=contact_phone,
+            total_price=total_price,
+        )
+
+        intent = stripe.PaymentIntent.create(
+            amount=int(total_price * 100),
+            currency="usd",
+            metadata={"booking_id": str(booking.pk)},
+        )
+
+        booking.stripe_payment_intent_id = intent["id"]
+        booking.stripe_client_secret = intent["client_secret"]
+        booking.save(update_fields=[
+            "stripe_payment_intent_id", "stripe_client_secret"
+        ])
+
+    return booking
+
+
+def booking_cancel(*, booking: Booking, user) -> Booking:
+    import stripe
+
+    stripe.api_key = (
+        django_settings.SETTINGS.STRIPE.SECRET_KEY.get_secret_value()
+    )
+
+    if booking.user_id != user.pk:
+        raise ValidationError("You do not own this booking.")
+
+    if booking.status not in (BookingStatus.PAID, BookingStatus.CONFIRMED):
+        raise ValidationError(
+            "Only paid or confirmed bookings can be cancelled and refunded."
+        )
+
+    stripe.Refund.create(payment_intent=booking.stripe_payment_intent_id)
+
+    booking.status = BookingStatus.REFUNDED
+    booking.save(update_fields=["status"])
+    return booking
+
+
+def booking_confirm_payment(*, payment_intent_id: str) -> Booking | None:
+    booking = Booking.objects.filter(
+        stripe_payment_intent_id=payment_intent_id
+    ).first()
+    if booking is None:
+        return None
+
+    if booking.status in (
+        BookingStatus.PAID,
+        BookingStatus.CONFIRMED,
+        BookingStatus.REFUNDED,
+        BookingStatus.CANCELLED,
+    ):
+        return booking
+
+    booking.status = BookingStatus.PAID
+    booking.save(update_fields=["status"])
+
+    notify_async(
+        recipient=booking.user,
+        title="Booking confirmed!",
+        message=(
+            f'Your booking for "{booking.tour.title}" has been confirmed. '
+            f"Total paid: ${booking.total_price}."
+        ),
+        notification_type=NotificationType.BOOKING_CONFIRMED,
+    )
+
+    return booking
+
+
+# ---------------------------------------------------------------------------
+# Tour Review
+# ---------------------------------------------------------------------------
+
+_REVIEWABLE_STATUSES = [BookingStatus.PAID, BookingStatus.CONFIRMED]
+
+
+def review_create(*, user, tour: Tour, rating: int, comment: str = "") -> TourReview:
+    has_booking = Booking.objects.filter(
+        user=user, tour=tour, status__in=_REVIEWABLE_STATUSES
+    ).exists()
+    if not has_booking:
+        raise ValidationError(
+            "You can only review tours you have a confirmed booking for."
+        )
+
+    review = TourReview(user=user, tour=tour, rating=rating, comment=comment)
+    review.save()
+    return review
+
+
+def review_update(*, review: TourReview, rating: int | None = None, comment: str | None = None) -> TourReview:
+    if rating is not None:
+        review.rating = rating
+    if comment is not None:
+        review.comment = comment
+    review.save()
+    return review
+
+
+def review_delete(*, review: TourReview, user) -> None:
+    if review.user_id != user.pk:
+        raise ValidationError("You can only delete your own reviews.")
+    review.delete()
+
+
+# ---------------------------------------------------------------------------
+# Agency Review
+# ---------------------------------------------------------------------------
+
+_REVIEWABLE_AGENCY_STATUSES = [BookingStatus.PAID, BookingStatus.CONFIRMED]
+
+
+def agency_review_create(
+    *, user, agency: Agency, rating: int, comment: str = ""
+) -> AgencyReview:
+    has_booking = Booking.objects.filter(
+        user=user,
+        tour__agency=agency,
+        status__in=_REVIEWABLE_AGENCY_STATUSES,
+    ).exists()
+    if not has_booking:
+        raise ValidationError(
+            "You can only review agencies you have a confirmed booking with."
+        )
+    review = AgencyReview(user=user, agency=agency, rating=rating, comment=comment)
+    review.save()
+    return review
+
+
+def agency_review_update(
+    *, review: AgencyReview, rating: int | None = None, comment: str | None = None
+) -> AgencyReview:
+    if rating is not None:
+        review.rating = rating
+    if comment is not None:
+        review.comment = comment
+    review.save()
+    return review
+
+
+def agency_review_delete(*, review: AgencyReview, user) -> None:
+    if review.user_id != user.pk:
+        raise ValidationError("You can only delete your own reviews.")
+    review.delete()

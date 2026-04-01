@@ -141,6 +141,16 @@ class AuthSettings(BaseSettings):
         }
 
 
+class StripeSettings(BaseSettings):
+    SECRET_KEY: SecretStr = Field(
+        SecretStr(""), validation_alias="STRIPE_SECRET_KEY"
+    )
+    PUBLISHABLE_KEY: str = Field("", validation_alias="STRIPE_PUBLISHABLE_KEY")
+    WEBHOOK_SECRET: SecretStr = Field(
+        SecretStr(""), validation_alias="STRIPE_WEBHOOK_SECRET"
+    )
+
+
 class Settings(BaseSettings):
     DEBUG: bool = True
 
@@ -150,6 +160,7 @@ class Settings(BaseSettings):
     AUTH: AuthSettings = AuthSettings()
     REDIS: RedisSettings = RedisSettings()
     SECURITY: SecuritySettings = SecuritySettings()
+    STRIPE: StripeSettings = StripeSettings()
 
     model_config = SettingsConfigDict(
         env_file_encoding="utf-8",

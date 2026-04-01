@@ -4,10 +4,16 @@ from apps.tours.enums.agency import (
     InvitationStatus,
 )
 from apps.tours.enums.hotel import RoomType
-from apps.tours.enums.tour import NotificationType, TourStatus, TransferType
+from apps.tours.enums.tour import (
+    BookingStatus,
+    NotificationType,
+    TourStatus,
+    TransferType,
+)
 
 __all__ = [
     "AgencyStatus",
+    "BookingStatus",
     "EmployeeRole",
     "InvitationStatus",
     "NotificationType",
