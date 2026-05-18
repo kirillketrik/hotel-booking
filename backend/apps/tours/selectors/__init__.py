@@ -4,6 +4,9 @@ from apps.tours.selectors.agency import (
     agency_list,
     agency_list_all,
     agency_list_approved,
+    agency_list_for_staff,
+    agency_list_for_user,
+    agency_list_public,
 )
 from apps.tours.selectors.booking import (
     booking_get_used_capacity,
@@ -20,7 +23,13 @@ from apps.tours.selectors.invitation import (
 )
 from apps.tours.selectors.notification import notification_list
 from apps.tours.selectors.review import review_list_for_tour
-from apps.tours.selectors.tour import tour_get, tour_list
+from apps.tours.selectors.tour import (
+    tour_get,
+    tour_list,
+    tour_list_for_agency,
+    tour_list_for_staff,
+    tour_list_public,
+)
 from apps.tours.selectors.wishlist import wishlist_tour_list
 
 __all__ = [
@@ -29,6 +38,9 @@ __all__ = [
     "agency_list",
     "agency_list_all",
     "agency_list_approved",
+    "agency_list_for_staff",
+    "agency_list_for_user",
+    "agency_list_public",
     "booking_get_used_capacity",
     "booking_list_for_agency",
     "booking_list_for_user",
@@ -43,5 +55,8 @@ __all__ = [
     "review_list_for_tour",
     "tour_get",
     "tour_list",
+    "tour_list_for_agency",
+    "tour_list_for_staff",
+    "tour_list_public",
     "wishlist_tour_list",
 ]

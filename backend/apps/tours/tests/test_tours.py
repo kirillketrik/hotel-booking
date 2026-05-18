@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from apps.tours.enums import TourStatus
+from apps.tours.enums import EmployeeRole, TourStatus
 from apps.tours.models import AgencyEmployee, Notification
 
 pytestmark = pytest.mark.django_db
@@ -110,6 +110,81 @@ class TestTourList:
         ids = [item["id"] for item in response.data["results"]]
         assert str(approved_tour.pk) in ids
 
+    def test_agency_member_can_list_all_statuses_for_own_agency(
+        self, operator_client, approved_agency, agency_operator
+    ):
+        from datetime import date
+        from decimal import Decimal
+
+        from apps.tours.services import (
+            tour_approve,
+            tour_create,
+            tour_reject,
+        )
+
+        owner = AgencyEmployee.objects.get(
+            agency=approved_agency, role=EmployeeRole.OWNER
+        )
+        pending_tour = tour_create(
+            agency=approved_agency,
+            created_by=owner,
+            title="Pending Tour",
+            description="pending desc",
+            price=Decimal("100.00"),
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 5),
+            location_data={"country": "Italy", "city": "Rome"},
+            max_adults=5,
+            max_children=2,
+        )
+        approved_tour = tour_approve(
+            tour=tour_create(
+                agency=approved_agency,
+                created_by=owner,
+                title="Approved Tour",
+                description="approved desc",
+                price=Decimal("120.00"),
+                start_date=date(2026, 8, 1),
+                end_date=date(2026, 8, 5),
+                location_data={"country": "Spain", "city": "Madrid"},
+                max_adults=6,
+                max_children=2,
+            )
+        )
+        rejected_tour = tour_reject(
+            tour=tour_create(
+                agency=approved_agency,
+                created_by=owner,
+                title="Rejected Tour",
+                description="rejected desc",
+                price=Decimal("140.00"),
+                start_date=date(2026, 9, 1),
+                end_date=date(2026, 9, 5),
+                location_data={"country": "Greece", "city": "Athens"},
+                max_adults=7,
+                max_children=3,
+            ),
+            reason="Needs changes",
+        )
+
+        url = reverse(
+            "agency-tours-list", kwargs={"agency_pk": approved_agency.pk}
+        )
+
+        response = operator_client.get(url)
+
+        assert response.status_code == 200
+        ids = {item["id"] for item in response.data["results"]}
+        assert str(pending_tour.pk) in ids
+        assert str(approved_tour.pk) in ids
+        assert str(rejected_tour.pk) in ids
+
+        pending_response = operator_client.get(url, {"status": TourStatus.PENDING})
+
+        assert pending_response.status_code == 200
+        pending_ids = [item["id"] for item in pending_response.data["results"]]
+        assert pending_ids == [str(pending_tour.pk)]
+
     def test_list_filtered_by_agency_pk(
         self, api_client, approved_tour, approved_agency, other_user
     ):
@@ -156,6 +231,17 @@ class TestTourList:
         ids = [item["id"] for item in response.data["results"]]
         assert str(approved_tour.pk) in ids
         assert str(other_tour.pk) not in ids
+
+
+class TestStaffTourList:
+    url = reverse("staff-tours-list")
+
+    def test_admin_sees_pending_tours(self, admin_client, tour):
+        response = admin_client.get(self.url, {"status": TourStatus.PENDING})
+
+        assert response.status_code == 200
+        ids = [item["id"] for item in response.data["results"]]
+        assert str(tour.pk) in ids
 
 
 class TestTourUpdate:

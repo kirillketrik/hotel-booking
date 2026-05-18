@@ -437,7 +437,7 @@ function ToursTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link
-                        href={`/tours/${tour.id}`}
+                        href={`/agencies/${tour.agency}/tours/${tour.id}`}
                         className="font-semibold text-base hover:underline flex items-center gap-1"
                       >
                         {tour.title}

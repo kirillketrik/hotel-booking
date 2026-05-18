@@ -6,7 +6,11 @@ from rest_framework.response import Response
 
 from apps.tours.enums import EmployeeRole
 from apps.tours.models import Agency
-from apps.tours.selectors import agency_list, agency_list_all, agency_list_approved
+from apps.tours.selectors import (
+    agency_list_for_staff,
+    agency_list_for_user,
+    agency_list_public,
+)
 from apps.tours.serializers import (
     AgencyCreateSerializer,
     AgencyModerationSerializer,
@@ -38,12 +42,9 @@ class AgencyViewSet(
         user = self.request.user
         if self.action in ("retrieve", "destroy"):
             if user.is_authenticated and (user.is_staff or self.action == "destroy"):
-                return agency_list_all()
-            return agency_list_approved()
-        if user.is_staff:
-            qs = agency_list_all()
-        else:
-            qs = agency_list(user=user)
+                return agency_list_for_staff()
+            return agency_list_public()
+        qs = agency_list_for_user(user=user)
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)
@@ -106,3 +107,19 @@ class AgencyViewSet(
         reason = serializer.validated_data.get("reason", "")
         agency = agency_reject(agency=agency, reason=reason)
         return Response(AgencySerializer(agency).data)
+
+
+class StaffAgencyViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "created_at", "status"]
+    ordering = ["-created_at"]
+    serializer_class = AgencySerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        qs = agency_list_for_staff()
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs

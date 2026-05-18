@@ -78,7 +78,30 @@ class TestAgencyList:
         response = admin_client.get(self.url)
 
         assert response.status_code == 200
+        assert response.data["results"] == []
+
+
+class TestStaffAgencyList:
+    url = reverse("staff-agencies-list")
+
+    def test_admin_sees_all_agencies(self, admin_client, agency, other_user):
+        agency_create(
+            user=other_user,
+            name="Other Agency",
+            description="other desc",
+        )
+
+        response = admin_client.get(self.url)
+
+        assert response.status_code == 200
         assert len(response.data["results"]) >= 2
+
+    def test_staff_filter_by_status(self, admin_client, agency):
+        response = admin_client.get(self.url, {"status": AgencyStatus.PENDING})
+
+        assert response.status_code == 200
+        ids = [item["id"] for item in response.data["results"]]
+        assert str(agency.pk) in ids
 
 
 class TestAgencyUpdate:

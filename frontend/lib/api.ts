@@ -143,11 +143,11 @@ export const apiEndpoints = {
   admin: {
     agencies: {
       list: (params?: Record<string, unknown>) =>
-        api.get('/api/v1/agencies/', { params }),
+        api.get('/api/v1/staff/agencies/', { params }),
     },
     tours: {
       list: (params?: Record<string, unknown>) =>
-        api.get('/api/v1/tours/', { params }),
+        api.get('/api/v1/staff/tours/', { params }),
     },
   },
 

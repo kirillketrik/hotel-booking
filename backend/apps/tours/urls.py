@@ -12,6 +12,8 @@ from apps.tours.views import (
     InvitationViewSet,
     NotificationViewSet,
     StripeWebhookView,
+    StaffAgencyViewSet,
+    StaffTourViewSet,
     TourReviewViewSet,
     TourViewSet,
     WishlistViewSet,
@@ -20,6 +22,10 @@ from apps.tours.views import (
 # /api/v1/agencies/
 agency_router = DefaultRouter()
 agency_router.register(r"", AgencyViewSet, basename="agencies")
+
+# /api/v1/staff/agencies/
+staff_agency_router = DefaultRouter()
+staff_agency_router.register(r"", StaffAgencyViewSet, basename="staff-agencies")
 
 # /api/v1/agencies/{agency_pk}/employees/
 employee_router = DefaultRouter()
@@ -58,6 +64,10 @@ review_router.register(r"", TourReviewViewSet, basename="tour-reviews")
 public_tour_router = DefaultRouter()
 public_tour_router.register(r"", TourViewSet, basename="public-tours")
 
+# /api/v1/staff/tours/
+staff_tour_router = DefaultRouter()
+staff_tour_router.register(r"", StaffTourViewSet, basename="staff-tours")
+
 # /api/v1/wishlist/
 wishlist_router = DefaultRouter()
 wishlist_router.register(r"", WishlistViewSet, basename="wishlist")
@@ -81,6 +91,8 @@ urlpatterns = [
     path("api/v1/bookings/", include(booking_router.urls)),
     path("api/v1/invitations/", include(invitation_respond_router.urls)),
     path("api/v1/notifications/", include(notification_router.urls)),
+    path("api/v1/staff/agencies/", include(staff_agency_router.urls)),
+    path("api/v1/staff/tours/", include(staff_tour_router.urls)),
     path("api/v1/stripe/webhook/", StripeWebhookView.as_view(), name="stripe-webhook"),
     path("api/v1/wishlist/", include(wishlist_router.urls)),
     path("api/v1/tours/<uuid:tour_pk>/reviews/", include(review_router.urls)),

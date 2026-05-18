@@ -14,7 +14,12 @@ from apps.tours.selectors import (
     booking_get_used_capacity,
     booking_list_room_usage,
     hotel_room_list_for_tour,
-    tour_list,
+    tour_list_for_agency,
+    tour_list_for_staff,
+    tour_list_public,
+)
+from apps.tours.enums import (
+    TourStatus,
 )
 from apps.tours.serializers import (
     BookingCreateResponseSerializer,
@@ -71,21 +76,24 @@ class TourViewSet(
         agency_pk = self.kwargs.get("agency_pk")
 
         if agency_pk:
-            # Agency-scoped view: show all tours to members/staff
-            return tour_list(
+            is_agency_member = (
+                user.is_authenticated
+                and AgencyEmployee.objects.filter(
+                    user=user, agency_id=agency_pk
+                ).exists()
+            )
+
+            # Agency-scoped view:
+            # - members and global staff can see all statuses
+            # - everyone else only sees approved tours from approved agencies
+            return tour_list_for_agency(
                 agency=agency_pk,
-                approved_agency_only=not is_staff,
+                include_all_statuses=is_staff or is_agency_member,
+                is_staff=is_staff,
             )
 
         # Public catalog: only upcoming, approved tours from approved agencies
-        qs = tour_list(
-            approved_agency_only=True,
-            status="approved",
-            upcoming_only=True,
-        )
-        if self.action in ("book", "availability"):
-            return qs
-        return qs
+        return tour_list_public()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -318,3 +326,21 @@ class TourViewSet(
             "is_fully_booked": is_fully_booked,
             "rooms": rooms,
         })
+
+
+class StaffTourViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = TourFilter
+    search_fields = [
+        "title",
+        "description",
+        "location__country",
+        "location__city",
+    ]
+    ordering_fields = ["price", "start_date", "created_at", "duration_days"]
+    ordering = ["-created_at"]
+    serializer_class = TourSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return tour_list_for_staff()

@@ -2,7 +2,7 @@ from django.db.models import IntegerField, OuterRef, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.tours.enums import AgencyStatus
+from apps.tours.enums import AgencyStatus, TourStatus
 from apps.tours.models import Booking, Tour
 
 
@@ -29,13 +29,7 @@ def _availability_annotations():
     }
 
 
-def tour_list(
-    *,
-    agency=None,
-    status: str | None = None,
-    approved_agency_only: bool = False,
-    upcoming_only: bool = False,
-) -> QuerySet[Tour]:
+def _tour_base_queryset(*, include_availability: bool) -> QuerySet[Tour]:
     qs = Tour.objects.select_related(
         "agency", "location", "created_by__user"
     ).prefetch_related(
@@ -44,7 +38,21 @@ def tour_list(
         "hotels__images",
         "hotels__rooms",
         "hotels__amenities",
-    ).annotate(**_availability_annotations())
+    )
+    if include_availability:
+        qs = qs.annotate(**_availability_annotations())
+    return qs
+
+
+def tour_list(
+    *,
+    agency=None,
+    status: str | None = None,
+    approved_agency_only: bool = False,
+    upcoming_only: bool = False,
+    is_staff: bool = False,
+) -> QuerySet[Tour]:
+    qs = _tour_base_queryset(include_availability=not is_staff)
     if agency is not None:
         qs = qs.filter(agency=agency)
     if status is not None:
@@ -54,6 +62,33 @@ def tour_list(
     if upcoming_only:
         qs = qs.filter(start_date__gte=timezone.now().date())
     return qs
+
+
+def tour_list_public() -> QuerySet[Tour]:
+    return tour_list(
+        approved_agency_only=True,
+        status=TourStatus.APPROVED,
+        upcoming_only=True,
+        is_staff=False,
+    )
+
+
+def tour_list_for_staff() -> QuerySet[Tour]:
+    return _tour_base_queryset(include_availability=False)
+
+
+def tour_list_for_agency(
+    *,
+    agency,
+    include_all_statuses: bool,
+    is_staff: bool = False,
+) -> QuerySet[Tour]:
+    return tour_list(
+        agency=agency,
+        status=None if include_all_statuses else TourStatus.APPROVED,
+        approved_agency_only=not include_all_statuses,
+        is_staff=is_staff,
+    )
 
 
 def tour_get(*, pk) -> Tour:

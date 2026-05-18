@@ -798,7 +798,7 @@ export default function AgencyDashboardPage() {
             ) : filteredTours.length > 0 ? (
               <div className="space-y-3">
                 {filteredTours.map((tour: Tour) => (
-                  <Link key={tour.id} href={`/tours/${tour.id}`} className="group block">
+                  <Link key={tour.id} href={`/agencies/${agencyId}/tours/${tour.id}`} className="group block">
                     <Card className="cursor-pointer transition-all hover:shadow-md">
                       <CardContent className="pt-5 pb-5">
                         <div className="flex items-center justify-between gap-4">
