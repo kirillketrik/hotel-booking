@@ -1,0 +1,44 @@
+---
+config:
+  theme: neutral
+  flowchart:
+    rankSpacing: 60
+    nodeSpacing: 40
+---
+flowchart TB
+    subgraph CLIENT["Клиентская часть"]
+        BROWSER["Браузер<br/>Next.js / React"]
+    end
+
+    subgraph DOCKER["Docker Compose"]
+        subgraph BACKEND["Серверная часть"]
+            WEB["web<br/>Django 6 + Granian<br/>:8000"]
+            WORKER["celery_worker<br/>Celery Worker"]
+            BEAT["celery_beat<br/>Celery Beat"]
+        end
+
+        subgraph DATA["Хранилище данных"]
+            DB[("db<br/>PostgreSQL 18")]
+            REDIS[("redis<br/>Redis 7")]
+            MINIO[("minio<br/>MinIO<br/>:9000/:9001")]
+        end
+
+        STRIPE["stripe<br/>Stripe CLI<br/>(dev)"]
+    end
+
+    subgraph EXTERNAL["Внешние сервисы"]
+        STRIPE_API["Stripe API<br/>(production)"]
+    end
+
+    BROWSER -->|"HTTP REST API"| WEB
+    BROWSER -->|"WebSocket ws://"| WEB
+    WEB -->|"ORM queries"| DB
+    WEB -->|"channel layer"| REDIS
+    WEB -->|"media files"| MINIO
+    WEB -->|"enqueue tasks"| REDIS
+    WORKER -->|"dequeue tasks"| REDIS
+    WORKER -->|"read/write"| DB
+    WORKER -->|"push WS events"| REDIS
+    BEAT -->|"schedule"| REDIS
+    STRIPE -->|"webhook POST"| WEB
+    WEB <-->|"Payment Intents API"| STRIPE_API

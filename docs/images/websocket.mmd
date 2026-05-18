@@ -1,0 +1,35 @@
+---
+config:
+  theme: neutral
+---
+sequenceDiagram
+    participant C as Браузер (Next.js)
+    participant M as WebSocketJWT Middleware
+    participant NC as NotificationConsumer
+    participant CL as Channel Layer (Redis)
+    participant SVC as Сервисный слой
+    participant CT as Celery Worker
+
+    Note over C,CT: Установка соединения
+
+    C->>M: WS ws://host/ws/notifications/<br/>+ cookie: access_token
+    M->>M: Проверка JWT из cookie
+    M->>NC: Передача аутентифицированного пользователя
+    NC->>CL: channel_layer.group_add(<br/>  "notifications_user_{pk}")
+    NC-->>C: {"type": "unread_count", "count": N}
+
+    Note over C,CT: Системное событие (например, тур одобрен)
+
+    SVC->>SVC: notify(user, title, message, type)
+    SVC->>SVC: Notification.objects.create(...)
+    SVC->>CT: send_notification_task.delay(recipient_id, ...)
+
+    CT->>CL: channel_layer.group_send(<br/>  "notifications_user_{pk}",<br/>  {type: "notification", ...})
+    CL->>NC: Доставка сообщения в группу
+    NC-->>C: {"type": "notification",<br/> "title": "...", "message": "..."}
+
+    Note over C,CT: Действие пользователя
+
+    C->>NC: {"action": "mark_read", "id": "uuid"}
+    NC->>NC: Notification.objects.filter(id=...).update(is_read=True)
+    NC-->>C: {"type": "unread_count", "count": N-1}

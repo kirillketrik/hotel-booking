@@ -1,0 +1,153 @@
+---
+config:
+  theme: neutral
+---
+erDiagram
+    USER {
+        uuid id PK
+        string email UK
+        string first_name
+        string last_name
+    }
+
+    AGENCY {
+        uuid id PK
+        string name UK
+        text description
+        string logo
+        string status
+        decimal rating
+    }
+
+    AGENCY_EMPLOYEE {
+        uuid id PK
+        uuid user_id FK
+        uuid agency_id FK
+        string role
+    }
+
+    INVITATION {
+        uuid id PK
+        uuid agency_id FK
+        uuid created_by_id FK
+        uuid invited_user_id FK
+        string invited_email
+        uuid token UK
+        string status
+        string role
+        datetime expires_at
+    }
+
+    LOCATION {
+        uuid id PK
+        string country
+        string city
+        decimal latitude
+        decimal longitude
+    }
+
+    TOUR {
+        uuid id PK
+        uuid agency_id FK
+        uuid location_id FK
+        string title
+        decimal price
+        date start_date
+        date end_date
+        int duration_days
+        string status
+        decimal rating
+    }
+
+    TOUR_IMAGE {
+        uuid id PK
+        uuid tour_id FK
+        string image
+        int order
+    }
+
+    HOTEL {
+        uuid id PK
+        uuid tour_id FK
+        string name
+        int stars
+    }
+
+    HOTEL_ROOM {
+        uuid id PK
+        uuid hotel_id FK
+        string room_type
+        decimal price_per_night
+        int capacity
+        int quantity
+    }
+
+    AMENITY {
+        uuid id PK
+        string name UK
+        string icon
+    }
+
+    BOOKING {
+        uuid id PK
+        uuid user_id FK
+        uuid tour_id FK
+        uuid room_id FK
+        string status
+        int adults_count
+        decimal total_price
+        string stripe_payment_intent_id UK
+    }
+
+    TOUR_REVIEW {
+        uuid id PK
+        uuid user_id FK
+        uuid tour_id FK
+        int rating
+        text comment
+    }
+
+    AGENCY_REVIEW {
+        uuid id PK
+        uuid user_id FK
+        uuid agency_id FK
+        int rating
+        text comment
+    }
+
+    WISHLIST {
+        uuid id PK
+        uuid user_id FK
+        uuid tour_id FK
+    }
+
+    NOTIFICATION {
+        uuid id PK
+        uuid recipient_id FK
+        string title
+        text message
+        string notification_type
+        bool is_read
+    }
+
+    USER ||--o{ AGENCY_EMPLOYEE : "работает в"
+    AGENCY ||--o{ AGENCY_EMPLOYEE : "имеет"
+    AGENCY ||--o{ TOUR : "публикует"
+    AGENCY ||--o{ INVITATION : "отправляет"
+    AGENCY ||--o{ AGENCY_REVIEW : "получает"
+    AGENCY_EMPLOYEE ||--o{ INVITATION : "создаёт"
+    USER ||--o{ INVITATION : "получает"
+    LOCATION ||--o{ TOUR : "место"
+    TOUR ||--o{ TOUR_IMAGE : "содержит"
+    TOUR ||--o{ HOTEL : "включает"
+    TOUR ||--o{ BOOKING : "бронируется"
+    TOUR ||--o{ TOUR_REVIEW : "получает"
+    TOUR ||--o{ WISHLIST : "добавляется"
+    HOTEL ||--o{ HOTEL_ROOM : "содержит"
+    HOTEL }o--o{ AMENITY : "имеет"
+    HOTEL_ROOM ||--o{ BOOKING : "выбирается в"
+    USER ||--o{ BOOKING : "создаёт"
+    USER ||--o{ TOUR_REVIEW : "пишет"
+    USER ||--o{ AGENCY_REVIEW : "пишет"
+    USER ||--o{ WISHLIST : "ведёт"
+    USER ||--o{ NOTIFICATION : "получает"

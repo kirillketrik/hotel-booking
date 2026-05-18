@@ -1,0 +1,64 @@
+---
+config:
+  theme: neutral
+---
+flowchart TD
+    subgraph FE["Клиентская часть — Next.js / React"]
+        PAGES["Pages / App Router<br/>• Server Components<br/>• Client Components"]
+        RQ["TanStack React Query<br/>• HTTP-запросы к API<br/>• Кэширование данных"]
+        WS_CLIENT["WebSocket-клиент<br/>• Приём уведомлений<br/>• Обновление UI"]
+        STORE["Zustand Store<br/>• Глобальное состояние<br/>• Данные пользователя"]
+    end
+
+    PAGES --> RQ
+    PAGES --> WS_CLIENT
+    PAGES --> STORE
+
+    HTTP_LINE["REST API  /api/v1/"]:::proto
+    WS_LINE["WebSocket  ws://host/ws/notifications/"]:::proto
+
+    RQ -->|"axios"| HTTP_LINE
+    WS_CLIENT --> WS_LINE
+
+    subgraph BE["Серверная часть — Django 6"]
+
+        subgraph VIEW["Слой представления — views.py"]
+            VS["DRF ViewSet<br/>• Проверка прав доступа<br/>• Делегирование сервису"]
+        end
+
+        subgraph WS_BE["WebSocket — consumers.py"]
+            NC["NotificationConsumer<br/>• JWT-аутентификация<br/>• Channel Layer (Redis)"]
+        end
+
+        subgraph SER["Сериализаторы — serializers.py"]
+            SZ["Serializer<br/>• Валидация входных данных<br/>• Сериализация ответа"]
+        end
+
+        subgraph SVC["Сервисный слой — services.py"]
+            FN["def fn(*, kwarg:)<br/>• Бизнес-логика<br/>• Атомарные операции"]
+        end
+
+        subgraph SEL["Слой запросов — selectors.py"]
+            QS["def get_*()<br/>• QuerySet + select_related<br/>• Переиспользуемые выборки"]
+        end
+
+        subgraph MDL["Слой моделей — models.py"]
+            M["Model — BaseModel<br/>• UUID7 PK<br/>• full_clean() при save()"]
+        end
+
+    end
+
+    HTTP_LINE --> VS
+    WS_LINE --> NC
+    VS <--> SZ
+    VS --> FN
+    NC --> FN
+    FN --> QS
+    FN --> M
+    QS --> DB
+    M --> DB
+
+    DB[("PostgreSQL")]:::db
+
+    classDef proto fill:#f3e5f5,stroke:#7B1FA2,font-style:italic
+    classDef db fill:#fff3e0,stroke:#FF9800

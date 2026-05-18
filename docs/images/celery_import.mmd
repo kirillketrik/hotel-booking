@@ -1,0 +1,28 @@
+---
+config:
+  theme: neutral
+---
+sequenceDiagram
+    participant C as Браузер (Next.js)
+    participant API as Django API
+    participant RD as Redis (брокер)
+    participant CT as Celery Worker
+
+    Note over C,CT: Инициация импорта
+
+    C->>API: POST /api/v1/agencies/{pk}/tours/import/<br/>multipart/form-data: file=tours.csv
+    API->>API: Проверка прав (IsApprovedOperator)<br/>Чтение CSV в память
+    API->>RD: tour_bulk_import_task.delay(<br/>  agency_id, employee_id,<br/>  csv_text, requester_id)
+    API-->>C: 202 Accepted
+
+    Note over C,CT: Асинхронная обработка
+
+    CT->>RD: Извлечение задачи из очереди
+    CT->>CT: Agency.objects.get(...)<br/>AgencyEmployee.objects.get(...)
+    CT->>CT: tour_bulk_import(agency, created_by, file)<br/>↳ построчный разбор CSV<br/>↳ Tour.objects.create(...) × N
+
+    Note over C,CT: Уведомление о завершении
+
+    CT->>CT: Notification.objects.create(...)<br/>{"created": N, "errors": [...]}
+    CT->>RD: channel_layer.group_send(<br/>  "notifications_user_{pk}")
+    RD-->>C: {"type": "notification",<br/>"message": "N tour(s) imported"}
