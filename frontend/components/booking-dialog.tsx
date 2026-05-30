@@ -10,6 +10,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { toast } from 'sonner'
 import { CalendarDays, BedDouble, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
   DialogContent,
@@ -24,9 +25,8 @@ import { Badge } from '@/components/ui/badge'
 import { apiEndpoints } from '@/lib/api'
 import type { BookingCreateResponse, RoomAvailability, Tour, TourAvailability } from '@/lib/types'
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''
-)
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null
 
 const bookingSchema = z.object({
   adults_count: z.coerce.number().int().min(1, 'At least 1 adult required'),
@@ -40,20 +40,23 @@ const bookingSchema = z.object({
 type BookingFormData = z.infer<typeof bookingSchema>
 
 interface PaymentStepProps {
-  clientSecret: string
   bookingId: string
   totalPrice: string
   onCancel: () => void
 }
 
-function PaymentStep({ clientSecret, bookingId, totalPrice, onCancel }: PaymentStepProps) {
+function PaymentStep({ bookingId, totalPrice, onCancel }: PaymentStepProps) {
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
+  const [stripeError, setStripeError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!stripe || !elements) return
+    if (!stripe || !elements) {
+      setStripeError('Payment form is still loading. Please try again in a moment.')
+      return
+    }
 
     setLoading(true)
     const { error } = await stripe.confirmPayment({
@@ -75,13 +78,23 @@ function PaymentStep({ clientSecret, bookingId, totalPrice, onCancel }: PaymentS
         <span className="text-muted-foreground">Total to pay</span>
         <span className="font-semibold text-base">${parseFloat(totalPrice).toFixed(2)}</span>
       </div>
-      <PaymentElement />
+      {stripeError && (
+        <Alert variant="destructive">
+          <AlertDescription>{stripeError}</AlertDescription>
+        </Alert>
+      )}
+      <PaymentElement
+        onLoaderStart={() => setStripeError(null)}
+        onLoadError={(event) => {
+          setStripeError(event.error.message || 'Payment form failed to load.')
+        }}
+      />
       <div className="flex gap-2 pt-2">
         <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>
           Back
         </Button>
-        <Button type="submit" className="flex-1" disabled={!stripe || loading}>
-          {loading ? 'Processing…' : 'Pay Now'}
+        <Button type="submit" className="flex-1" disabled={!stripe || !elements || loading || !!stripeError}>
+          {loading ? 'Processing…' : !stripe || !elements ? 'Loading…' : 'Pay Now'}
         </Button>
       </div>
     </form>
@@ -403,17 +416,29 @@ export function BookingDialog({ tour, initialIsFullyBooked }: { tour: Tour; init
               </Button>
             </form>
           ) : (
-            <Elements
-              stripe={stripePromise}
-              options={{ clientSecret: bookingResponse.stripe_client_secret }}
-            >
-              <PaymentStep
-                clientSecret={bookingResponse.stripe_client_secret}
-                bookingId={bookingResponse.id}
-                totalPrice={bookingResponse.total_price}
-                onCancel={() => setBookingResponse(null)}
-              />
-            </Elements>
+            stripePromise ? (
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret: bookingResponse.stripe_client_secret }}
+              >
+                <PaymentStep
+                  bookingId={bookingResponse.id}
+                  totalPrice={bookingResponse.total_price}
+                  onCancel={() => setBookingResponse(null)}
+                />
+              </Elements>
+            ) : (
+              <div className="space-y-4">
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Stripe publishable key is not configured for the frontend.
+                  </AlertDescription>
+                </Alert>
+                <Button type="button" variant="outline" className="w-full" onClick={() => setBookingResponse(null)}>
+                  Back
+                </Button>
+              </div>
+            )
           )}
         </DialogContent>
       </Dialog>

@@ -1,0 +1,8 @@
+node_modules
+.next
+tsconfig.tsbuildinfo
+.git
+.gitignore
+.idea
+.agents
+.codex
